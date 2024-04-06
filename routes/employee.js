@@ -1,7 +1,7 @@
 const express = require("express")
 const router = express.Router()
 
-const loginController = require('../controllers/login_session_controller.js')
+const employeeController = require('../controllers/employee_controller.js')
 
 const isAuthenticatedEmployee = (req, res, next) => {
     if (req.session.employee) {
@@ -11,9 +11,6 @@ const isAuthenticatedEmployee = (req, res, next) => {
     }
   };
 
-router.post("/employee", loginController.loginEmployee)
-router.post("/employeeCheck", isAuthenticatedEmployee, loginController.checkIfLoggedIn)
-router.post('/signout', isAuthenticatedEmployee, loginController.signOutEmployee)
-
+router.post("/addNewEmployee", isAuthenticatedEmployee, employeeController.addNewEmployee);
 
 module.exports = router
