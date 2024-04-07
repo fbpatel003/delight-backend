@@ -12,5 +12,6 @@ const isAuthenticatedEmployee = (req, res, next) => {
   };
 
 router.post("/addNewEmployee", isAuthenticatedEmployee, employeeController.addNewEmployee);
+router.post("/getEmployeeMasterData", isAuthenticatedEmployee, employeeController.getEmployeeMasterData);
 
 module.exports = router

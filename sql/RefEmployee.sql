@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS dbo."RefEmployee"
     "AddedOn" timestamp with time zone,
     "LastEditedByRefEmployeeId" integer,
     "LastEditedOn" timestamp with time zone,
+    "MobileNumber" text COLLATE pg_catalog."default",
+    "Email" text COLLATE pg_catalog."default",
     CONSTRAINT "RefEmployee_pkey" PRIMARY KEY ("RefEmployeeId"),
     CONSTRAINT "UQ_RefEmployee_EmployeeLoginId" UNIQUE ("EmployeeLoginId"),
     CONSTRAINT "FK_RefEmployee_RefEmployeeType" FOREIGN KEY ("RefEmployeeTypeId")
@@ -27,7 +29,11 @@ ALTER TABLE IF EXISTS dbo."RefEmployee"
     OWNER to postgree_test_0oll_user;
 
 
-
 INSERT INTO dbo."RefEmployee"(
 	"Name", "RefEmployeeTypeId", "EmployeeLoginId", "Password", "AddedByRefEmployeeId", "AddedOn", "LastEditedByRefEmployeeId", "LastEditedOn")
 	VALUES ('Nimesh Vasoya', 1, 'Admin', '$2b$11$xVIBj4zTlXutOWXFC/6WGOnwa9GEXj3nAZDQWMv8s8n.Dqnizgfui', 1, now(), 1, now());
+
+
+
+
+

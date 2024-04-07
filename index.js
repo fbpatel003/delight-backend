@@ -25,7 +25,7 @@ const loginRouter = require('./routes/login.js')
 app.use("/api/login", loginRouter)
 
 const employeeRouter = require('./routes/employee.js')
-app.use('api/employee', employeeRouter);
+app.use('/api/employee', employeeRouter);
 
 
 app.listen(process.env.PORT, () => console.log("Server is running on port 15047"))

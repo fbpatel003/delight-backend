@@ -23,3 +23,8 @@ INSERT INTO dbo."RefEnumValue"(
 	"EnumTypeName", "EnumValueName", "Code")
 	VALUES ('Delivery Employee Permission Type', 'Can See Pending Delivery', 'CanSeePendingDelivery'),
 	('Delivery Employee Permission Type', 'Can See Completed Delivery', 'CanSeeCompletedDelivery');
+
+INSERT INTO dbo."RefEnumValue"(
+	"EnumTypeName", "EnumValueName", "Code")
+	VALUES ('Managing Employee Permission Type','Can Add New Employee','CanAddNewEmployee'),
+	('Managing Employee Permission Type','Can See and Update existing Employee','CanSeeAndUpdateExistingEmployee');

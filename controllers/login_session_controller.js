@@ -1,8 +1,6 @@
 const postgre = require("../database");
 const bcrypt = require("bcrypt");
 
-const saltRounds = 11;
-
 const loginController = {
   loginEmployee: async (req, res) => {
     try {
@@ -29,13 +27,6 @@ const loginController = {
         return;
       }
 
-      // bcrypt.hash(password, saltRounds, async (err, hash)=>{
-      //     if(err){
-      //         console.log(err);
-      //     } else {
-      //         console.log(hash);
-      //     }
-      // });
       var employee = rows[0];
 
       bcrypt.compare(password, employee.Password, async (error, response) => {
