@@ -175,7 +175,7 @@ const employeeController = {
       }
 
       const sqlPermission =
-      `
+        `
       SELECT
       v.*
       FROM dbo."SecEntityPermision" s
@@ -213,7 +213,7 @@ const employeeController = {
       if (name == null || name.trim() == '')
         throw 'Name can not be empty!'
 
-      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefEmployee" WHERE "EmployeeLoginId" = '${loginId} AND "RefEmployeeId" <> ${RefEmployeeId}'`
+      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefEmployee" WHERE "EmployeeLoginId" = '${loginId}' AND "RefEmployeeId" <> ${RefEmployeeId}`
       const { rows: rows } = await postgre.query(sqlToCheckDuplicateLoginId);
 
       if (rows != null && rows.length > 0) {
@@ -225,13 +225,14 @@ const employeeController = {
       const { rows: rows2 } = await postgre.query(sqlEmployeeOld);
 
       const sqlPermission =
-      `
+        `
       SELECT
       v.*
       FROM dbo."SecEntityPermision" s
       INNER JOIN dbo."RefEnumValue" v ON v."RefEnumValueId" = s."PermissionRefEnumValueId"
       WHERE s."EntityTypeCode" = 'E' AND s."EntityId" = ${RefEmployeeId}
       `
+
       const { rows: rows3 } = await postgre.query(sqlPermission);
 
       var permissionchanged = false;
@@ -239,33 +240,50 @@ const employeeController = {
 
       const newPermissions = permissionCodes.toString().split(',');
 
-      if(newPermissions.length != rows3.length)
+      if (newPermissions.length != rows3.length)
         permissionchanged = true;
 
-      if(!permissionchanged){
-        const oldPermissions = rows3.map(obj=>obj.Code);
+      if (!permissionchanged) {
+        const oldPermissions = rows3.map(obj => obj.Code);
 
         const sortedArr1 = oldPermissions.slice().sort();
         const sortedArr2 = newPermissions.slice().sort();
 
         for (let i = 0; i < sortedArr1.length; i++) {
-            if (sortedArr1[i] !== sortedArr2[i]) {
-                permissionchanged = true; 
-                break;
-            }
+          if (sortedArr1[i] !== sortedArr2[i]) {
+            permissionchanged = true;
+            break;
+          }
         }
       }
 
-      if(!permissionchanged){
-        if(name != rows2.Name || mobileNumber != rows2.MobileNumber || email != rows2.Email || loginId != rows2.EmployeeLoginId){
+      if (!permissionchanged) {
+        if (name != rows2.Name || mobileNumber != rows2.MobileNumber || email != rows2.Email || loginId != rows2.EmployeeLoginId) {
           detailschanged = true;
         }
       }
 
-      if(!permissionchanged && !detailschanged)
-        throw `No details Changed of Employee : ${rows2.Name}!`
+      if (!permissionchanged && !detailschanged)
+        throw `Nothing to Update for Employee : ${rows2.Name}!`
 
-      
+      const sqlToUpdate =
+        `
+      SELECT dbo.refemployee_update(
+        ${UserRefEmployeeId}, 
+        ${RefEmployeeId}, 
+        '${permissionCodes}', 
+        '${employeeType}', 
+        '${name}', 
+        '${mobileNumber}', 
+        '${email}', 
+        '${loginId}'
+      );
+      `
+
+      const { rows: rows4 } = await postgre.query(sqlToUpdate);
+
+      if (rows4 != null && rows4.length > 0)
+        res.json({ isError: false, msg: 'Employee Details Updated Successfully.' });
 
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });

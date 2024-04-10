@@ -1,6 +1,6 @@
--- FUNCTION: dbo.refemployee_insert(integer, text, text, text, text, text, text, text)
+-- FUNCTION: dbo.refemployee_update(integer, integer, text, text, text, text, text, text)
 
--- DROP FUNCTION IF EXISTS dbo.refemployee_insert(integer, text, text, text, text, text, text, text);
+-- DROP FUNCTION IF EXISTS dbo.refemployee_update(integer, integer, text, text, text, text, text, text);
 
 CREATE OR REPLACE FUNCTION dbo.refemployee_update(
 	adding_refemployeetypeid integer,
@@ -10,9 +10,8 @@ CREATE OR REPLACE FUNCTION dbo.refemployee_update(
 	e_name text,
 	e_mobilenumber text,
 	email text,
-	loginid text
-	)
-    RETURNS TABLE(refemployeeid integer, name text, employeeloginid text) 
+	loginid text)
+    RETURNS TABLE(refemployeeid_ integer, name text, employeeloginid text) 
     LANGUAGE 'plpgsql'
     COST 100
     VOLATILE PARALLEL UNSAFE
@@ -23,25 +22,14 @@ DECLARE
 	PremissionEnumTypeName TEXT;
 BEGIN
 
-	--BEGIN
-
-	UPDATE dbo."RefEmployee"(
-	"Name", 
-	"EmployeeLoginId", 
-	"LastEditedByRefEmployeeId", 
-	"LastEditedOn", 
-	"MobileNumber", 
-	"Email")
-	VALUES 
-	(
-	e_name,
-	loginid,
-	adding_refemployeetypeid,
-	now(),
-	e_mobilenumber,
-	email
-	)
-	;
+	UPDATE dbo."RefEmployee"
+	SET "Name" = e_name, 
+	"EmployeeLoginId" = loginid, 
+	"LastEditedByRefEmployeeId" = adding_refemployeetypeid, 
+	"LastEditedOn" = now(), 
+	"MobileNumber" = e_mobilenumber, 
+	"Email" = email
+	WHERE "RefEmployeeId" = refemployeeid;
 
 	IF employee_type = 'DeliveryEmployee' THEN
         PremissionEnumTypeName := 'Delivery Employee Permission Type';
@@ -57,13 +45,26 @@ BEGIN
 	SELECT 
 	unnest(string_to_array(permission_codes,',')) ;
 
-	SELECT
-	*
-	INTO 
-	FROM dbo."RefEnumValue"
-	WHERE "EnumTypeName" = PremissionEnumTypeName
+	-- DELETE FROM dbo."SecEntityPermision" s
+	-- USING dbo."RefEnumValue" v
+	-- LEFT JOIN permissions pe ON pe."code" = v."Code"
+	-- WHERE v."RefEnumValueId" = s."PermissionRefEnumValueId"
+	--   AND s."EntityTypeCode" = 'E'
+	--   AND s."EntityId" = refemployeeid
+	--   AND pe."code" IS NULL;
 
-	-----------------------------------------
+	DELETE FROM dbo."SecEntityPermision"
+	WHERE "SecEntityPermisionId"
+	IN (
+		SELECT
+		s."SecEntityPermisionId"
+		FROM dbo."SecEntityPermision" s
+		INNER JOIN dbo."RefEnumValue" v ON v."RefEnumValueId" = s."PermissionRefEnumValueId"
+	LEFT JOIN permissions pe ON pe."code" = v."Code"
+	WHERE s."EntityTypeCode" = 'E'
+	  AND s."EntityId" = refemployeeid
+	  AND pe."code" IS NULL
+	);
 
 	INSERT INTO dbo."SecEntityPermision"(
 	"EntityTypeCode", "EntityId", "PermissionRefEnumValueId")
@@ -73,14 +74,14 @@ BEGIN
 	en."RefEnumValueId"
 	FROM "permissions" pe
 	INNER JOIN dbo."RefEnumValue" en ON en."Code" = pe."code"
+	LEFT JOIN dbo."SecEntityPermision" ol ON ol."EntityTypeCode" = 'E'
+		AND ol."PermissionRefEnumValueId" = en."RefEnumValueId"
+		AND ol."EntityId" = RefEMployeeId
 	WHERE en."EnumTypeName" = PremissionEnumTypeName
+		AND ol."SecEntityPermisionId" IS NULL
 	;
 
-	-- EXCEPTION
- --        -- Rollback the transaction in case of an error
- --        WHEN others THEN
- --            RAISE NOTICE 'An error occurred: %', SQLERRM;
- --            ROLLBACK;
+	DROP TABLE permissions;
 
     RETURN QUERY 
 	SELECT 
@@ -91,11 +92,8 @@ BEGIN
 	WHERE "RefEmployeeId" = RefEMployeeId
 	;
 
-		-- COMMIT;
-  --   END;
-
 END;
 $BODY$;
 
-ALTER FUNCTION dbo.refemployee_insert(integer, text, text, text, text, text, text, text)
+ALTER FUNCTION dbo.refemployee_update(integer, integer, text, text, text, text, text, text)
     OWNER TO postgree_test_0oll_user;
