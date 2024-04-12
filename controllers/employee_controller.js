@@ -166,6 +166,7 @@ const employeeController = {
       FROM dbo."RefEmployee" e
       INNER JOIN dbo."RefEmployeeType" ty ON ty."RefEmployeeTypeId" = e."RefEmployeeTypeId"
       WHERE e."RefEmployeeId" = ${RefEmployeeId}
+      ORDER BY e."RefEmployeeId"
       `
 
       const { rows: row } = await postgre.query(sqlEmployee);
