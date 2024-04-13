@@ -28,3 +28,17 @@ INSERT INTO dbo."RefEnumValue"(
 	"EnumTypeName", "EnumValueName", "Code")
 	VALUES ('Managing Employee Permission Type','Can Add New Employee','CanAddNewEmployee'),
 	('Managing Employee Permission Type','Can See and Update existing Employee','CanSeeAndUpdateExistingEmployee');
+
+
+INSERT INTO dbo."RefEnumValue"
+("EnumTypeName", "EnumValueName", "Code")
+VALUES('Managing Employee Permission Type','Can Add New Customer','CanAddNewCustomer'),
+('Managing Employee Permission Type','Can See and Update existing Customer','CanSeeAndUpdateExistingCustomer');
+
+INSERT INTO dbo."RefEnumValue"
+("EnumTypeName", "EnumValueName", "Code")
+VALUES ('Customer Permission Type', 'Can See Notes Added By Transaction Creator', 'CanSeeNotesAddedByTransactionCreator'),
+('Customer Permission Type', 'Can See Notes Added By Delivering Employee', 'Can SeeNotesAddedByDeliveingEmployee'),
+('Customer Permission Type', 'Can See Added Comission In A Transaction', 'CanSeeAddedComissionInATransaction'),
+('Customer Permission Type', 'Can See Added Charges In A Transaction', 'CanSeeAddedChargesInATransaction');
+

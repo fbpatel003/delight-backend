@@ -30,4 +30,7 @@ app.use('/api/employee', employeeRouter);
 const companysettingRouter = require('./routes/companysetting.js')
 app.use('/api/companySetting', companysettingRouter);
 
+const customerRouter = require('./routes/customer.js')
+app.use('/api/customer',customerRouter);
+
 app.listen(process.env.PORT, () => console.log("Server is running on port 15047"))

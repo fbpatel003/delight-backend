@@ -11,6 +11,7 @@ const isAuthenticatedEmployee = (req, res, next) => {
     }
   };
 
-router.post("/addCOmissionProfile", isAuthenticatedEmployee, companySettingController.addNewComissionProfile);
+router.post("/addComissionProfile", isAuthenticatedEmployee, companySettingController.addNewComissionProfile);
+router.post("/getAllCompanySetting", isAuthenticatedEmployee, companySettingController.getAllCompanySettings);
 
 module.exports = router
