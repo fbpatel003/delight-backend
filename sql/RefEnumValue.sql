@@ -42,3 +42,7 @@ VALUES ('Customer Permission Type', 'Can See Notes Added By Transaction Creator'
 ('Customer Permission Type', 'Can See Added Comission In A Transaction', 'CanSeeAddedComissionInATransaction'),
 ('Customer Permission Type', 'Can See Added Charges In A Transaction', 'CanSeeAddedChargesInATransaction');
 
+INSERT INTO dbo."RefEnumValue" ("EnumTypeName", "EnumValueName", "Code")
+VALUES ('EntityType', 'Customer','Customer'),
+('EntityType', 'Bank', 'Bank'),
+('EntityType', 'Agent', 'Agent');

@@ -25,7 +25,7 @@ const companySettingController = {
   addNewComissionProfile: async (req, res) => {
     try {
       const employee = req.session.employee;
-      const profileName = req.body.profileName;
+      const profileName = req.body.profileName.trim();
       const comissionProfileValues = req.body.comissionProfileValues;
 
       if (!profileName || profileName == null || profileName.trim() == '')
@@ -33,6 +33,20 @@ const companySettingController = {
 
       if (!comissionProfileValues || comissionProfileValues == null)
         throw 'Invalid data passed!'
+
+      const sqlDuplicateName = 
+      `
+      SELECT
+      *
+      FROM dbo."RefComissionProfile"
+      WHERE "Name" = '${profileName}'
+      `
+
+      const {rows : dup} = await postgre.query(sqlDuplicateName);
+
+      if(dup && dup.length>0){
+        throw `Profile with Name ${profileName} already exists!`
+      }
 
       //#region validation
       comissionProfileValues.sort((a, b) => a.OrderById - b.OrderById);

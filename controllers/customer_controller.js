@@ -4,11 +4,12 @@ const bcrypt = require("bcrypt");
 const saltRounds = 11;
 
 const customerController = {
-  addNewEmployee: async (req, res) => {
+  addNewCustomer: async (req, res) => {
     try {
-      const RefEmployeeId = req.session.employee.RefEmployeeId;
-      const employeeType = req.body.employeeType;
+      const employee = req.session.employee;
+      const RefEmployeeId = employee.RefEmployeeId;
       const name = req.body.name;
+      const defaultProfile = req.body.defaultProfile;
       const mobileNumber = req.body.mobileNumber;
       const email = req.body.email;
       const loginId = req.body.loginId.trim();
@@ -16,13 +17,10 @@ const customerController = {
       const confirmPassword = req.body.confirmPassword;
       const permissionCodes = req.body.permissionCodes;
 
-      const permissionToAddEmployee = req.session.employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanAddNewEmployee");
+      const permissionToAddCustomer = employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanAddNewCustomer");
 
-      if (!permissionToAddEmployee)
-        throw 'User is Unauthorized to add Employee';
-
-      if (employeeType == null || employeeType.trim() == '')
-        throw 'InValid Employee Type';
+      if (!permissionToAddCustomer)
+        throw 'User is Unauthorized to add Customer';
 
       if (name == null || name.trim() == '')
         throw 'Name can not be empty!'
@@ -33,12 +31,12 @@ const customerController = {
       if (password == null || password.trim() == '')
         throw 'Password can not be empty!'
 
-      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefEmployee" WHERE "EmployeeLoginId" = '${loginId}'`
+      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefCRMCustomer" WHERE "CustomerLoginId" = '${loginId}'`
 
       const { rows: row2 } = await postgre.query(sqlToCheckDuplicateLoginId);
 
       if (row2 != null && row2.length > 0) {
-        res.json({ isError: true, msg: "User with login id " + loginId + " already exists!" });
+        res.json({ isError: true, msg: "Customer with login id " + loginId + " already exists!" });
         return;
       }
 
@@ -49,25 +47,25 @@ const customerController = {
         } else {
           const sql =
             `
-              SELECT dbo.refemployee_insert(
-                ${RefEmployeeId}, 
-                '${permissionCodes}', 
-                '${employeeType}', 
-                '${name}', 
-                '${mobileNumber}', 
-                '${email}', 
-                '${loginId}', 
-                '${hash}'
-              );
+            SELECT dbo.refcrmcustomer_insert(
+              ${RefEmployeeId}, 
+              '${permissionCodes}', 
+              '${defaultProfile}', 
+              '${name}', 
+              '${mobileNumber}', 
+              '${email}', 
+              '${loginId}', 
+              '${hash}'
+            )
               `
             ;
           const { rows } = await postgre.query(sql);
 
           if (rows == null || rows.length == 0) {
-            res.json({ isError: true, msg: "Something went wrong! could not added Employee" });
+            res.json({ isError: true, msg: "Something went wrong! could not added Customer" });
             return;
           } else {
-            res.json({ isError: false, msg: `Employee Added Successfully, Please Refresh Deploy Link for ${name} to coninue.` });
+            res.json({ isError: false, msg: `Customer Added Successfully, Please Refresh Deploy Link for ${name} to coninue.` });
             return;
           }
         }
@@ -97,39 +95,47 @@ const customerController = {
         customerPermission = [...allPermissions.rows];
       }
 
-      // const permissionToSeeAndUpdateCustomer = employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanSeeAndUpdateExistingCustomer");
-      // var employeeMasterData = [];
+      const permissionToSeeAndUpdateCustomer = employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanSeeAndUpdateExistingCustomer");
+      var customerMasterData = [];
 
-      // if (permissionToSeeAndUpdateEmployees) {
-      //   const sql2 = `
-      //   SELECT 
-      //   e."RefEmployeeId", 
-      //   e."Name", 
-      //   e."RefEmployeeTypeId", 
-      //   e."EmployeeLoginId", 
-      //   ad."Name" AS AddedByRefEmployee, 
-      //   e."AddedOn", 
-      //   lastEd."Name" AS LastEditedByRefEmployee, 
-      //   e."LastEditedOn", 
-      //   e."MobileNumber", 
-      //   e."Email",
-      //   t."Name" AS EmployeeType
-      //   FROM dbo."RefEmployee" e
-      //   INNER JOIN dbo."RefEmployeeType" t ON t."RefEmployeeTypeId" = e."RefEmployeeTypeId"
-      //   INNER JOIN dbo."RefEmployee" ad ON ad."RefEmployeeId" = e."AddedByRefEmployeeId"
-      //   INNER JOIN dbo."RefEmployee" lastEd ON lastEd."RefEmployeeId" = e."LastEditedByRefEmployeeId"
-      //   WHERE t."Code" IN ('DeliveryEmployee','ManagingEmployee');
-      // `;
+      if (permissionToSeeAndUpdateCustomer) {
+        const sql2 = `
+        SELECT 
+        cu."RefCRMCustomerId", 
+        cu."Name", 
+        cu."IsActive", 
+        acc."CurrentBalance",
+        emp."Name" AS AddedByRefEmployee, 
+        cu."AddedOn", 
+        lastEmp."Name" AS LastEditedByRefEmployee, 
+        cu."LastEditedOn"
+        FROM dbo."RefCRMCustomer" cu
+        INNER JOIN dbo."RefEmployee" emp ON emp."RefEmployeeId" = cu."AddedByRefEmployeeId"
+        INNER JOIN dbo."RefEmployee" lastEmp ON lastEmp."RefEmployeeId" = cu."LastEditedByRefEmployeeId"
+        INNER JOIN dbo."RefEntityAccount" acc ON acc."EntityId" = emp."RefEmployeeId"
+        INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = acc."EntityTypeRefEnumValueId"
+        WHERE enu."Code" = 'Customer'
+      `;
 
-      //   employeeMasterData = await postgre.query(sql2);
-      // }
+        customerMasterData = await postgre.query(sql2);
+      }
+
+      const sqlprofile = 
+      `
+      SELECT DISTINCT
+      "Name"
+      FROM dbo."RefComissionProfile"
+      `
+      const profileNames = await postgre.query(sqlprofile);
 
       res.json({
         isError: false,
         msg: "Data loaded successfully",
         data: {
           employee,
-          customerPermission
+          customerPermission,
+          profileNames: profileNames.rows,
+          customerMasterData
         }
       })
 
