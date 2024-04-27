@@ -32,7 +32,7 @@ BEGIN
 	"Email" = c_email,
 	"DefaultComissionProfileName" = default_profile,
 	"IsActive" = c_isActive
-	WHERE "RefCRMCustomer" = refcrmcustomerid;
+	WHERE "RefCRMCustomerId" = refcrmcustomerid;
 
 	DROP TABLE IF EXISTS permissions;
 
@@ -68,7 +68,7 @@ BEGIN
 	LEFT JOIN dbo."SecEntityPermision" ol ON ol."EntityTypeCode" = 'C'
 		AND ol."PermissionRefEnumValueId" = en."RefEnumValueId"
 		AND ol."EntityId" = refcrmcustomerid
-	WHERE en."EnumTypeName" = PremissionEnumTypeName
+	WHERE en."EnumTypeName" ='Customer Permission Type'
 		AND ol."SecEntityPermisionId" IS NULL
 	;
 

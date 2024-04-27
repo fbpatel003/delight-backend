@@ -3,73 +3,56 @@ const bcrypt = require("bcrypt");
 
 const saltRounds = 11;
 
-const customerController = {
-  addNewCustomer: async (req, res) => {
+const BankAndAgentController = {
+  addNewBankOrAgent: async (req, res) => {
     try {
       const employee = req.session.employee;
       const RefEmployeeId = employee.RefEmployeeId;
       const name = req.body.name;
-      const defaultProfile = req.body.defaultProfile;
-      const mobileNumber = req.body.mobileNumber;
-      const email = req.body.email;
-      const loginId = req.body.loginId.trim();
-      const password = req.body.password;
-      const confirmPassword = req.body.confirmPassword;
-      const permissionCodes = req.body.permissionCodes;
+      const type = req.body.type;
 
-      const permissionToAddCustomer = employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanAddNewCustomer");
+      if(type !== "Bank" && type !== "Agent")
+        throw `Invalid Type ${type}`;
 
-      if (!permissionToAddCustomer)
-        throw 'User is Unauthorized to add Customer';
+      const permissionToAddBankOrAgent = employee.EmployeeType == "Admin";
+
+      if (!permissionToAddBankOrAgent)
+        throw `User is Unauthorized to add ${type}`;
 
       if (name == null || name.trim() == '')
         throw 'Name can not be empty!'
 
-      if (password != confirmPassword)
-        throw 'Passwords does not match with Confirm Password!'
-
-      if (password == null || password.trim() == '')
-        throw 'Password can not be empty!'
-
-      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefCRMCustomer" WHERE "CustomerLoginId" = '${loginId}'`
+      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."Ref${type}" WHERE "Name" = '${name}'`
 
       const { rows: row2 } = await postgre.query(sqlToCheckDuplicateLoginId);
 
-      if (row2 != null && row2.length > 0) {
-        res.json({ isError: true, msg: "Customer with login id " + loginId + " already exists!" });
-        return;
-      }
+      if (row2 != null && row2.length > 0)
+        throw `${type} with Name ${name} already exists!`;
 
-      bcrypt.hash(password, saltRounds, async (err, hash) => {
-        if (err) {
-          console.log(err);
-          throw err.toString();
-        } else {
-          const sql =
-            `
-            SELECT dbo.refcrmcustomer_insert(
-              ${RefEmployeeId}, 
-              '${permissionCodes}', 
-              '${defaultProfile}', 
-              '${name}', 
-              '${mobileNumber}', 
-              '${email}', 
-              '${loginId}', 
-              '${hash}'
-            )
-              `
-            ;
-          const { rows } = await postgre.query(sql);
+      const sqltoAdd =
+      `
+      INSERT INTO dbo."Ref${type}"(
+        "Name", 
+        "IsActive", 
+        "AddedByRefEmployeeId", 
+        "AddedOn", 
+        "LastEditedByRefEmployeeId", 
+        "LastEditedOn"
+        )
+        VALUES (
+        '${name}',
+        true,
+        ${RefEmployeeId},
+        now(),
+        ${RefEmployeeId},
+        now()
+        );
 
-          if (rows == null || rows.length == 0) {
-            res.json({ isError: true, msg: "Something went wrong! could not added Customer" });
-            return;
-          } else {
-            res.json({ isError: false, msg: `Customer Added Successfully, Please Refresh Deploy Link for ${name} to coninue.` });
-            return;
-          }
-        }
-      });
+      
+      `
+
+      res.json({ isError: false, msg: `${type} : ${name} Added Successfully.` });
+      return;
 
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
@@ -144,51 +127,6 @@ const customerController = {
       res.json({ isError: true, msg: error.toString() });
     }
   },
-  getCustomerDetailsById: async (req, res) => {
-    try {
-      const RefCRMCustomerId = req.body.RefCRMCustomerId;
-
-      const permissionToEditCustomer = req.session.employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanSeeAndUpdateExistingCustomer");
-
-      if (!permissionToEditCustomer)
-        throw 'User is Unauthorized to edit Customer';
-
-      const sqlEmployee =
-        `
-        SELECT "RefCRMCustomerId", 
-        "Name", 
-        "MobileNumber", 
-        "Email", 
-        "CustomerLoginId", 
-        "DefaultComissionProfileName", 
-        "IsActive"
-        FROM dbo."RefCRMCustomer"
-        WHERE "RefCRMCustomerId" = ${RefCRMCustomerId}
-        ;
-      `
-      const { rows: row } = await postgre.query(sqlEmployee);
-
-      if (row == null && row.length == 0) {
-        throw 'Invalid Customer Id!';
-      }
-
-      const sqlPermission =
-        `
-      SELECT
-      v.*
-      FROM dbo."SecEntityPermision" s
-      INNER JOIN dbo."RefEnumValue" v ON v."RefEnumValueId" = s."PermissionRefEnumValueId"
-      WHERE s."EntityTypeCode" = 'C' AND s."EntityId" = ${RefCRMCustomerId}
-      `
-
-      const { rows: row2 } = await postgre.query(sqlPermission);
-
-      res.json({ isError: false, msg: 'Data Loaded.', data: { customerData: row, premissions: row2 } })
-
-    } catch (error) {
-      res.json({ isError: true, msg: error.toString() });
-    }
-  },
   updateCustomerDetails: async (req, res) => {
     try {
       const UserRefEmployeeId = req.session.employee.RefEmployeeId;
@@ -242,4 +180,4 @@ const customerController = {
   },
 };
 
-module.exports = customerController;
+module.exports = BankAndAgentController;

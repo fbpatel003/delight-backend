@@ -1,0 +1,313 @@
+
+
+CREATE TABLE IF NOT EXISTS dbo."RefEnumValue"
+(
+    "RefEnumValueId" integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    "EnumTypeName" text COLLATE pg_catalog."default" NOT NULL,
+    "EnumValueName" text COLLATE pg_catalog."default" NOT NULL,
+    "Code" text COLLATE pg_catalog."default" NOT NULL,
+    CONSTRAINT "RefEnumValue_pkey" PRIMARY KEY ("RefEnumValueId"),
+    CONSTRAINT "UQ_RefEnumValue_EnumTypeName_Code" UNIQUE ("EnumTypeName", "Code")
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS dbo."RefEnumValue"
+    OWNER to postgree_test_0oll_user;
+
+INSERT INTO dbo."RefEnumValue"
+("EnumTypeName", "EnumValueName", "Code")
+VALUES 
+('Delivery Employee Permission Type', 'Can See Pending Delivery', 'CanSeePendingDelivery'),
+('Delivery Employee Permission Type', 'Can See Completed Delivery', 'CanSeeCompletedDelivery'),
+('Managing Employee Permission Type','Can Add New Employee','CanAddNewEmployee'),
+('Managing Employee Permission Type','Can See and Update existing Employee','CanSeeAndUpdateExistingEmployee'),
+('Managing Employee Permission Type','Can Add New Customer','CanAddNewCustomer'),
+('Managing Employee Permission Type','Can See and Update existing Customer','CanSeeAndUpdateExistingCustomer'),
+('Customer Permission Type', 'Can See Notes Added By Transaction Creator', 'CanSeeNotesAddedByTransactionCreator'),
+('Customer Permission Type', 'Can See Notes Added By Delivering Employee', 'Can SeeNotesAddedByDeliveingEmployee'),
+('Customer Permission Type', 'Can See Added Comission In A Transaction', 'CanSeeAddedComissionInATransaction'),
+('Customer Permission Type', 'Can See Added Charges In A Transaction', 'CanSeeAddedChargesInATransaction'),
+('EntityType', 'Customer','Customer'),
+('EntityType', 'Bank', 'Bank'),
+('EntityType', 'Agent', 'Agent');
+
+
+
+
+-------------------------------------------------------------------------------
+
+
+
+
+
+CREATE TABLE IF NOT EXISTS dbo."RefEmployeeType"
+(
+    "RefEmployeeTypeId" integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    "Name" text COLLATE pg_catalog."default" NOT NULL,
+    "Code" text COLLATE pg_catalog."default" NOT NULL,
+    CONSTRAINT "RefEmployeeType_pkey" PRIMARY KEY ("RefEmployeeTypeId")
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS dbo."RefEmployeeType"
+    OWNER to postgree_test_0oll_user;
+
+INSERT INTO dbo."RefEmployeeType"(
+	"Name", "Code")
+	VALUES ('Admin', 'Admin'),('Managing Employee', 'ManagingEmployee'), ('Delivery Employee', 'DeliveryEmployee');
+
+
+
+
+---------------------------------------------------------------------------------
+
+
+
+
+CREATE TABLE IF NOT EXISTS dbo."RefEmployee"
+(
+    "RefEmployeeId" integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    "Name" text COLLATE pg_catalog."default" NOT NULL,
+    "RefEmployeeTypeId" integer NOT NULL,
+    "EmployeeLoginId" text COLLATE pg_catalog."default" NOT NULL,
+    "Password" text COLLATE pg_catalog."default" NOT NULL,
+    "AddedByRefEmployeeId" integer,
+    "AddedOn" timestamp with time zone,
+    "LastEditedByRefEmployeeId" integer,
+    "LastEditedOn" timestamp with time zone,
+    "MobileNumber" text COLLATE pg_catalog."default",
+    "Email" text COLLATE pg_catalog."default",
+    CONSTRAINT "RefEmployee_pkey" PRIMARY KEY ("RefEmployeeId"),
+    CONSTRAINT "UQ_RefEmployee_EmployeeLoginId" UNIQUE ("EmployeeLoginId"),
+    CONSTRAINT "FK_RefEmployee_RefEmployeeType" FOREIGN KEY ("RefEmployeeTypeId")
+        REFERENCES dbo."RefEmployeeType" ("RefEmployeeTypeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS dbo."RefEmployee"
+    OWNER to postgree_test_0oll_user;
+
+
+INSERT INTO dbo."RefEmployee"(
+	"Name", "RefEmployeeTypeId", "EmployeeLoginId", "Password", "AddedByRefEmployeeId", "AddedOn", "LastEditedByRefEmployeeId", "LastEditedOn")
+	VALUES ('Nimesh Vasoya', 1, 'Admin', '$2b$11$xVIBj4zTlXutOWXFC/6Wnwa9GEXj3nAZDQWMv8s8n.Dqnizgfui', 1, now(), 1, now());
+
+
+
+
+
+
+----------------------------------------------------------------------------------
+
+
+
+
+
+CREATE TABLE IF NOT EXISTS dbo."SecEntityPermision"
+(
+    "SecEntityPermisionId" integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    "EntityTypeCode" text COLLATE pg_catalog."default" NOT NULL,
+    "EntityId" integer NOT NULL,
+    "PermissionRefEnumValueId" integer NOT NULL,
+    CONSTRAINT "SecEntityPermision_pkey" PRIMARY KEY ("SecEntityPermisionId"),
+    CONSTRAINT "FK_SecEntityPermission_RefEnumValue" FOREIGN KEY ("PermissionRefEnumValueId")
+        REFERENCES dbo."RefEnumValue" ("RefEnumValueId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS dbo."SecEntityPermision"
+    OWNER to postgree_test_0oll_user;
+
+
+
+
+--------------------------------------------------------------------------------
+
+
+
+
+
+CREATE TABLE IF NOT EXISTS dbo."RefComissionProfile"
+(
+    "RefComissionProfileId" integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    "Name" text COLLATE pg_catalog."default" NOT NULL,
+    "FromValue" bigint NOT NULL,
+    "ToValue" bigint NOT NULL,
+    "InPercent" double precision,
+    "InRupees" double precision,
+    "AddedOn" timestamp with time zone,
+    "AddedByRefEmployeeId" integer NOT NULL,
+    "OrderById" integer NOT NULL,
+    CONSTRAINT "RefComissionProfile_pkey" PRIMARY KEY ("RefComissionProfileId"),
+    CONSTRAINT "FK_RefComissionProfile_RefEmployee" FOREIGN KEY ("AddedByRefEmployeeId")
+        REFERENCES dbo."RefEmployeeType" ("RefEmployeeTypeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS dbo."RefComissionProfile"
+    OWNER to postgree_test_0oll_user;
+
+
+
+
+--------------------------------------------------------------------------------------
+
+
+
+
+CREATE TABLE IF NOT EXISTS dbo."RefCRMCustomer"
+(
+    "RefCRMCustomerId" integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    "Name" text COLLATE pg_catalog."default" NOT NULL,
+    "MobileNumber" text COLLATE pg_catalog."default",
+    "Email" text COLLATE pg_catalog."default",
+    "CustomerLoginId" text COLLATE pg_catalog."default" NOT NULL,
+    "Password" text COLLATE pg_catalog."default" NOT NULL,
+    "DefaultComissionProfileName" text COLLATE pg_catalog."default",
+    "IsActive" boolean NOT NULL,
+    "AddedByRefEmployeeId" integer NOT NULL,
+    "AddedOn" timestamp with time zone NOT NULL,
+    "LastEditedByRefEmployeeId" integer NOT NULL,
+    "LastEditedOn" timestamp with time zone NOT NULL,
+    CONSTRAINT "RefCRMCustomer_pkey" PRIMARY KEY ("RefCRMCustomerId"),
+    CONSTRAINT "UQ_RefCRMCustomer_LoginId" UNIQUE ("CustomerLoginId"),
+    CONSTRAINT "FK_RefCRMCustomer_RefEmployee_AddedOn" FOREIGN KEY ("AddedByRefEmployeeId")
+        REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT "FK_RefCRMCustomer_RefEmployee_EditedOn" FOREIGN KEY ("LastEditedByRefEmployeeId")
+        REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS dbo."RefCRMCustomer"
+    OWNER to postgree_test_0oll_user;
+
+
+
+
+---------------------------------------------------------------------------------
+
+
+
+
+CREATE TABLE IF NOT EXISTS dbo."RefEntityAccount"
+(
+    "RefEntityAccountId" integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    "EntityTypeRefEnumValueId" integer NOT NULL,
+    "EntityId" integer NOT NULL,
+    "CurrentBalance" double precision NOT NULL,
+    "AddedByRefEmployeeId" integer NOT NULL,
+    "AddedOn" timestamp with time zone NOT NULL,
+    "LastEditedByRefEmployeeId" integer NOT NULL,
+    "LastEditedOn" timestamp with time zone NOT NULL,
+    CONSTRAINT "RefEntityAccount_pkey" PRIMARY KEY ("RefEntityAccountId"),
+    CONSTRAINT "UQ_EntityTypeRefEnumValueId_EntityId" UNIQUE ("EntityTypeRefEnumValueId", "EntityId"),
+    CONSTRAINT "IX_RefEntityAccount_EntityTypeRefEnumValue" FOREIGN KEY ("EntityTypeRefEnumValueId")
+        REFERENCES dbo."RefEnumValue" ("RefEnumValueId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT "IX_RefEntityAccount_RefEmployee_AddedBy" FOREIGN KEY ("AddedByRefEmployeeId")
+        REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT "IX_RefEntityAccount_RefEmployee_LastEditedBy" FOREIGN KEY ("LastEditedByRefEmployeeId")
+        REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS dbo."RefEntityAccount"
+    OWNER to postgree_test_0oll_user;
+
+
+
+
+------------------------------------------------------------------------------------
+
+
+
+
+CREATE TABLE IF NOT EXISTS dbo."RefBank"
+(
+    "RefBankId" integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    "Name" text COLLATE pg_catalog."default" NOT NULL,
+    "IsActive" boolean NOT NULL,
+    "AddedByRefEmployeeId" integer NOT NULL,
+    "AddedOn" timestamp with time zone NOT NULL,
+    "LastEditedByRefEmployeeId" integer NOT NULL,
+    "LastEditedOn" timestamp with time zone NOT NULL,
+    CONSTRAINT "RefBank_pkey" PRIMARY KEY ("RefBankId"),
+    CONSTRAINT "UQ_RefBank_Name" UNIQUE ("Name"),
+    CONSTRAINT "FK_RefBank_AddedByRefEmployeeId" FOREIGN KEY ("AddedByRefEmployeeId")
+        REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT "FK_RefBank_LasteEditedByEmployeeId" FOREIGN KEY ("LastEditedByRefEmployeeId")
+        REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS dbo."RefBank"
+    OWNER to postgree_test_0oll_user;
+
+
+
+
+
+-----------------------------------------------------------------------------------
+
+
+
+
+CREATE TABLE IF NOT EXISTS dbo."RefAgent"
+(
+    "RefAgentId" integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    "Name" text COLLATE pg_catalog."default" NOT NULL,
+    "IsActive" boolean NOT NULL,
+    "AddedByRefEmployeeId" integer NOT NULL,
+    "AddedOn" timestamp with time zone NOT NULL,
+    "LastEditedByRefEmployeeId" integer NOT NULL,
+    "LastEditedOn" timestamp with time zone NOT NULL,
+    CONSTRAINT "RefAgent_pkey" PRIMARY KEY ("RefAgentId"),
+    CONSTRAINT "UQ_RefAgent_Name" UNIQUE ("Name"),
+    CONSTRAINT "FK_RefAgent_AddedByRefEmployeeId" FOREIGN KEY ("AddedByRefEmployeeId")
+        REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT "FK_RefAgent_LasteEditedByEmployeeId" FOREIGN KEY ("LastEditedByRefEmployeeId")
+        REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS dbo."RefAgent"
+    OWNER to postgree_test_0oll_user;
+
+
+
+
+
+
+

@@ -124,7 +124,10 @@ const employeeController = {
         INNER JOIN dbo."RefEmployeeType" t ON t."RefEmployeeTypeId" = e."RefEmployeeTypeId"
         INNER JOIN dbo."RefEmployee" ad ON ad."RefEmployeeId" = e."AddedByRefEmployeeId"
         INNER JOIN dbo."RefEmployee" lastEd ON lastEd."RefEmployeeId" = e."LastEditedByRefEmployeeId"
-        WHERE t."Code" IN ('DeliveryEmployee','ManagingEmployee');
+        WHERE t."Code" IN ('DeliveryEmployee','ManagingEmployee')
+        AND e."RefEmployeeId" <> ${employee.RefEmployeeId}
+        ORDER BY e."RefEmployeeId"
+        ;
       `;
 
         employeeMasterData = await postgre.query(sql2);
