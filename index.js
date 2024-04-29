@@ -7,8 +7,7 @@ const app = express()
 
 app.use(express.json())
 app.use(cors({
-    //origin:["http://localhost:3000"],
-    origin: ['http://192.168.123.27:3000'], // Frontend origin
+    origin: [process.env.FRONTEND_ORIGIN], // Frontend origin
     methods: ["GET", "POST"],
     credentials: true
 }))
@@ -39,5 +38,8 @@ app.use('/api/customer', customerRouter);
 
 const bankAgentRouter = require('./routes/bankandagent.js')
 app.use('/api/bankagent', bankAgentRouter);
+
+const transactionRouter = require('./routes/transaction.js')
+app.use('/api/transaction', transactionRouter);
 
 app.listen(process.env.PORT, () => console.log("Server is running on port 15047"))
