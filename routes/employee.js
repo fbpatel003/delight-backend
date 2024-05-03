@@ -16,4 +16,4 @@ router.post("/getEmployeeMasterData", isAuthenticatedEmployee, employeeControlle
 router.post("/getEmployeeDetailsById", isAuthenticatedEmployee, employeeController.getEmployeeDetailsById);
 router.post("/updateEmployeeDetails", isAuthenticatedEmployee, employeeController.updateEmployeeDetails);
 
-module.exports = router
+module.exports = router;
