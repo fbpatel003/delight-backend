@@ -1,19 +1,27 @@
-const express = require("express")
-const router = express.Router()
+const express = require("express");
+const router = express.Router();
+const jwt = require("jsonwebtoken");
 
-const loginController = require('../controllers/login_session_controller.js')
+const loginController = require("../controllers/login_session_controller.js");
 
 const isAuthenticatedEmployee = (req, res, next) => {
-    if (req.session.employee) {
-      next(); // User is authenticated
-    } else {
-      res.json({isError: true, msg: "Employee is Unauthorized"})
-    }
-  };
+  const token = req.headers.authorization;
+  if (!token) return res.json({ isError: true, msg: "Token not found!" });
 
-router.post("/employee", loginController.loginEmployee)
-router.post("/employeeCheck", isAuthenticatedEmployee, loginController.checkIfLoggedIn)
-router.post('/signout', isAuthenticatedEmployee, loginController.signOutEmployee)
+  try {
+    const decoded = jwt.verify(token, process.env["JWT_SECRET"]);
+    req.session = { employee: decoded };
+    next();
+  } catch (error) {
+    res.json({ isError: true, msg: error });
+  }
+};
 
+router.post("/employee", loginController.loginEmployee);
+router.post(
+  "/employeeCheck",
+  isAuthenticatedEmployee,
+  loginController.checkIfLoggedIn,
+);
 
-module.exports = router
+module.exports = router;

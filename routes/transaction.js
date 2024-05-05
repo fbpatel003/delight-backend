@@ -1,16 +1,26 @@
-const express = require("express")
-const router = express.Router()
+const express = require("express");
+const router = express.Router();
+const jwt = require("jsonwebtoken");
 
-const TransactionController = require('../controllers/transaction_controller.js')
+const TransactionController = require("../controllers/transaction_controller.js");
 
 const isAuthenticatedEmployee = (req, res, next) => {
-    if (req.session.employee) {
-      next(); // User is authenticated
-    } else {
-      res.json({isError: true, msg: "Employee is Unauthorized"})
-    }
-  };
+  const token = req.headers.authorization;
+  if (!token) return res.json({ isError: true, msg: "Token not found!" });
 
-router.post("/getTransactionMasterData", isAuthenticatedEmployee, TransactionController.getTransactionMasterData);
+  try {
+    const decoded = jwt.verify(token, process.env["JWT_SECRET"]);
+    req.session = { employee: decoded };
+    next();
+  } catch (error) {
+    res.json({ isError: true, msg: error });
+  }
+};
 
-module.exports = router
+router.post(
+  "/getTransactionMasterData",
+  isAuthenticatedEmployee,
+  TransactionController.getTransactionMasterData,
+);
+
+module.exports = router;

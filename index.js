@@ -1,45 +1,41 @@
-const express = require("express")
-const cors = require('cors')
-require('dotenv').config()
-const session = require("express-session")
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
 
-const app = express()
+const app = express();
+app.use(express.json());
+app.use(
+    cors({
+        // origin: [
+        //     // "https://stccjj-3000.csb.app/",
+        //     // "https://stccjj-3000.csb.app",
+        //     "http://192.168.123.27:3000",
+        //     // "http://192.168.123.27",
+        // ], // Frontend origin
+        methods: ["GET", "POST"],
+    }),
+);
 
-app.use(express.json())
-app.use(cors({
-    origin: [process.env.FRONTEND_ORIGIN], // Frontend origin
-    methods: ["GET", "POST"],
-    credentials: true
-}))
-app.use(session({
-    secret: process.env.SECRET_KEY, // Change this to a secure random string
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-        maxAge: 1000 * 60 * 60
-    }
-}));
-
-app.get('/', (req, res) => {
-    res.send('<h1>Delight API V1.0.0 - Created By FB</h1>');
+app.get("/", (req, res) => {
+    res.send("<h1>Delight API V1.0.0 - Created By FB</h1>");
 });
 
-const loginRouter = require('./routes/login.js')
-app.use("/api/login", loginRouter)
+const loginRouter = require("./routes/login.js");
+app.use("/api/login", loginRouter);
 
-const employeeRouter = require('./routes/employee.js')
-app.use('/api/employee', employeeRouter);
+const employeeRouter = require("./routes/employee.js");
+app.use("/api/employee", employeeRouter);
 
-const companysettingRouter = require('./routes/companysetting.js')
-app.use('/api/companySetting', companysettingRouter);
+const companysettingRouter = require("./routes/companysetting.js");
+app.use("/api/companySetting", companysettingRouter);
 
-const customerRouter = require('./routes/customer.js')
-app.use('/api/customer', customerRouter);
+const customerRouter = require("./routes/customer.js");
+app.use("/api/customer", customerRouter);
 
-const bankAgentRouter = require('./routes/bankandagent.js')
-app.use('/api/bankagent', bankAgentRouter);
+const bankAgentRouter = require("./routes/bankandagent.js");
+app.use("/api/bankagent", bankAgentRouter);
 
-const transactionRouter = require('./routes/transaction.js')
-app.use('/api/transaction', transactionRouter);
+const transactionRouter = require("./routes/transaction.js");
+app.use("/api/transaction", transactionRouter);
 
-app.listen(process.env.PORT, () => console.log("Server is running on port 15047"))
+app.listen(15047, () => console.log("Server is running on port 15047"));
