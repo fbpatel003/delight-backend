@@ -22,5 +22,10 @@ router.post(
   isAuthenticatedEmployee,
   TransactionController.getTransactionMasterData,
 );
+router.post(
+  "/addNewTransaction",
+  isAuthenticatedEmployee,
+  TransactionController.addNewTransaction,
+);
 
 module.exports = router;

@@ -1,10 +1,13 @@
+-- FUNCTION: dbo.coretransactiondetail_insert(integer, text, integer, text, integer, double precision, double precision, double precision, double precision, text, integer, integer, integer, integer, integer, integer)
+
+-- DROP FUNCTION IF EXISTS dbo.coretransactiondetail_insert(integer, text, integer, text, integer, double precision, double precision, double precision, double precision, text, integer, integer, integer, integer, integer, integer);
 
 CREATE OR REPLACE FUNCTION dbo.coretransactiondetail_insert(
 	adding_refemployeetypeid integer,
 	from_entity_code text,
-	from_entityId integer,
+	from_entityid integer,
 	to_entity_code text,
-	to_entityId integer,
+	to_entityid integer,
 	amount double precision,
 	comission double precision,
 	charges double precision,
@@ -15,10 +18,12 @@ CREATE OR REPLACE FUNCTION dbo.coretransactiondetail_insert(
 	rupees100notes integer,
 	rupees50notes integer,
 	rupees20notes integer,
-	rupees10notes integer
-	)
-    RETURNS TABLE(CoreTransactionDetailId bigint) 
-    LANGUAGE 'plpgsql'
+	rupees10notes integer)
+		RETURNS TABLE(coretransactiondetailid bigint) 
+		LANGUAGE 'plpgsql'
+		COST 100
+		VOLATILE PARALLEL UNSAFE
+		ROWS 1000
 
 AS $BODY$
 DECLARE
@@ -106,9 +111,12 @@ BEGIN
 		"LastEditedOn" = now()
 	WHERE "EntityTypeRefEnumValueId" = ToEntityTypeId AND "EntityId" = to_entityId;
 
-    RETURN QUERY 
-	SELECT 1
+		RETURN QUERY 
+	VALUES (1 :: BIGINT)
 	;
 
 END;
 $BODY$;
+
+ALTER FUNCTION dbo.coretransactiondetail_insert(integer, text, integer, text, integer, double precision, double precision, double precision, double precision, text, integer, integer, integer, integer, integer, integer)
+		OWNER TO postgree_test_0oll_user;

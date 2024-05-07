@@ -1,10 +1,13 @@
+-- FUNCTION: dbo.coredeliverytransactiondetail_insert(integer, text, integer, text, integer, double precision, double precision, double precision, text, integer, integer, integer, integer, integer, integer, integer)
+
+-- DROP FUNCTION IF EXISTS dbo.coredeliverytransactiondetail_insert(integer, text, integer, text, integer, double precision, double precision, double precision, text, integer, integer, integer, integer, integer, integer, integer);
 
 CREATE OR REPLACE FUNCTION dbo.coredeliverytransactiondetail_insert(
 	adding_refemployeetypeid integer,
 	from_entity_code text,
-	from_entityId integer,
+	from_entityid integer,
 	to_entity_code text,
-	to_entityId integer,
+	to_entityid integer,
 	amount double precision,
 	comission double precision,
 	charges double precision,
@@ -15,10 +18,12 @@ CREATE OR REPLACE FUNCTION dbo.coredeliverytransactiondetail_insert(
 	rupees50notes integer,
 	rupees20notes integer,
 	rupees10notes integer,
-	delivery_employee_id integer
-	)
-    RETURNS TABLE(CoreDeliveryTransactionDetailId bigint) 
-    LANGUAGE 'plpgsql'
+	delivery_employee_id integer)
+		RETURNS TABLE(coredeliverytransactiondetailid bigint) 
+		LANGUAGE 'plpgsql'
+		COST 100
+		VOLATILE PARALLEL UNSAFE
+		ROWS 1000
 
 AS $BODY$
 DECLARE
@@ -83,9 +88,12 @@ BEGIN
 		now()
 		);
 
-    RETURN QUERY 
-	SELECT 1
+		RETURN QUERY 
+	VALUES (1::BIGINT)
 	;
 
 END;
 $BODY$;
+
+ALTER FUNCTION dbo.coredeliverytransactiondetail_insert(integer, text, integer, text, integer, double precision, double precision, double precision, text, integer, integer, integer, integer, integer, integer, integer)
+		OWNER TO postgree_test_0oll_user;
