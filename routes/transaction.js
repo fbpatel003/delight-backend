@@ -11,9 +11,17 @@ const isAuthenticatedEmployee = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env["JWT_SECRET"]);
     req.session = { employee: decoded };
-    next();
+    if (
+      req.session.employee &&
+      (req.session.employee.EmployeeType == "Admin" ||
+        req.session.employee.EmployeeType == "ManagingEmployee") &&
+      req.session.employee.RefEmployeeId &&
+      req.session.employee.permissions
+    )
+      next();
+    else throw new Error("Invalid Token!");
   } catch (error) {
-    res.json({ isError: true, msg: error });
+    res.json({ isError: true, msg: error.message });
   }
 };
 
@@ -26,6 +34,16 @@ router.post(
   "/addNewTransaction",
   isAuthenticatedEmployee,
   TransactionController.addNewTransaction,
+);
+router.post(
+  "/getTransactionDataByDate",
+  isAuthenticatedEmployee,
+  TransactionController.getTransactionDataByDate,
+);
+router.post(
+  "/getTransactionDetailById",
+  isAuthenticatedEmployee,
+  TransactionController.getTransactionDetailById,
 );
 
 module.exports = router;

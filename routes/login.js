@@ -11,7 +11,16 @@ const isAuthenticatedEmployee = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env["JWT_SECRET"]);
     req.session = { employee: decoded };
-    next();
+    if (
+      req.session.employee &&
+      (req.session.employee.EmployeeType == "Admin" ||
+        req.session.employee.EmployeeType == "ManagingEmployee" ||
+        req.session.employee.EmployeeType == "DeliveryEmployee") &&
+      req.session.employee.RefEmployeeId &&
+      req.session.employee.permissions
+    )
+      next();
+    else throw new Error("Invalid Token!");
   } catch (error) {
     res.json({ isError: true, msg: error });
   }
