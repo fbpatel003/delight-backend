@@ -83,10 +83,10 @@ BEGIN
     "50RupeesNotes", 
     "20RupeesNotes", 
     "10RupeesNotes", 
-    "AddedByRefEmployeeId", 
-    "AddedOn", 
-    "LastEditedByRefEmployeeId", 
-    "LastEditedOn", 
+    addingrefemployeetypeid, 
+    now(), 
+    addingrefemployeetypeid, 
+    now(), 
     FromEntityUpdatedBalance,
     ToEntityUpdatedBalance
   FROM dbo."CoreDeliveryTransactionDetail"

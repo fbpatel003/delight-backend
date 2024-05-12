@@ -45,6 +45,27 @@ const isAuthenticatedDeliveryEmployee = (req, res, next) => {
   }
 };
 
+const isAuthenticatedCustomer = (req, res, next) => {
+  const token = req.headers.authorization;
+  if (!token) return res.json({ isError: true, msg: "Token not found!" });
+
+  try {
+    const decoded = jwt.verify(token, process.env["JWT_SECRET"]);
+    req.session = { customer: decoded };
+
+    console.log(req.session);
+    if (
+      req.session.customer &&
+      req.session.customer.RefCRMCustomerId &&
+      req.session.customer.permissions
+    )
+      next();
+    else throw new Error("Invalid Token!");
+  } catch (error) {
+    res.json({ isError: true, msg: error.message });
+  }
+};
+
 router.post(
   "/getTransactionMasterData",
   isAuthenticatedEmployee,
@@ -74,6 +95,11 @@ router.post(
   "/acceptPendingDeliveryTransactionEmployee",
   isAuthenticatedDeliveryEmployee,
   TransactionController.acceptPendingDeliveryFromDeliveryEmployee,
+);
+router.post(
+  "/getCustomerTransactionData",
+  isAuthenticatedCustomer,
+  TransactionController.getCustomerTransactionData,
 );
 
 module.exports = router;
