@@ -467,6 +467,32 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const employee = req.session.employee;
       const employeeId = employee.RefEmployeeId;
 
+      const sqlToGetEntityNameDetails = `
+      SELECT
+      ac."RefEntityAccountId",
+      ac."EntityTypeRefEnumValueId",
+      enu."Code",
+      ac."EntityId",
+      CASE
+        WHEN ac."EntityTypeRefEnumValueId" = 11 THEN cust."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = 12 THEN bank."Name"
+        ELSE agent."Name"
+      END AS EntityName
+      FROM dbo."RefEntityAccount" ac
+      INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
+      LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = 11 AND cust."RefCRMCustomerId" = ac."EntityId"
+      LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = 12 AND bank."RefBankId" = ac."EntityId"
+      LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = 13 AND agent."RefAgentId" = ac."EntityId"
+      WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
+        `;
+
+      const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
+
+      const nameDetails = new Map();
+      EntityNameDetails.rows.forEach((t) => {
+        nameDetails.set(t.RefEntityAccountId, t);
+      });
+
       const sqlToGetTransactions = `
   SELECT
   tran."CoreDeliveryTransactionDetailId",
@@ -481,12 +507,13 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
   tran."AddedOn",
   edited."Name" AS EditedEmployeeName,
   tran."LastEditedOn",
-  tran."500RupeesNotes",
-  tran."200RupeesNotes",
-  tran."100RupeesNotes",
-  tran."50RupeesNotes",
-  tran."20RupeesNotes",
-  tran."10RupeesNotes"
+  tran."EmployeeNotes",
+  tran."500RupeesNotes" AS rupees500notes,
+  tran."200RupeesNotes" AS rupees200notes,
+  tran."100RupeesNotes" AS rupees100notes,
+  tran."50RupeesNotes" AS rupees50notes,
+  tran."20RupeesNotes" AS rupees20notes,
+  tran."10RupeesNotes" AS rupees10notes
   FROM dbo."CoreDeliveryTransactionDetail" tran
   INNER JOIN dbo."RefEntityAccount" fromName ON fromName."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND fromName."EntityId" = tran."FromEntityId"
   INNER JOIN dbo."RefEntityAccount" toName ON toName."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND toName."EntityId" = tran."ToEntityId"
@@ -502,9 +529,61 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         isError: false,
         msg: "Data loaded successfully",
         data: {
-          Transaction,
+          Transactions: Transactions.rows,
+          NameDetailsArray: Array.from(nameDetails.entries()),
         },
       });
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  acceptPendingDeliveryFromDeliveryEmployee: async (req, res) => {
+    try {
+      const notes = req.body.notes;
+      const transactionId = req.body.transactionId;
+
+      const sqlToGetTransaction = `
+        SELECT
+        *
+        FROM dbo."CoreDeliveryTransactionDetail"
+        WHERE "CoreDeliveryTransactionDetailId" = ${transactionId};
+        `;
+
+      const Transactions = await postgre.query(sqlToGetTransaction);
+      if (Transactions.rows == 0) throw "Invalid Transaction Id";
+
+      const Transaction = Transactions.rows[0];
+      if (Transaction.AcceptedByCustomer) {
+        const sqlToTransferTransaction = `
+          SELECT dbo.coretransactiondetail_transferfrom_coredeliverytransactiondetai(
+            ${Transaction.AddedByRefEmployeeId}, 
+            ${Transaction.CustomerNotes && Transaction.CustomerNotes.trim() != "" ? "'" + Transaction.CustomerNotes + "'" : null}, 
+            ${notes && notes.trim() != "" ? "'" + notes + "'" : null}, 
+            ${Transaction.Amount + (Transaction.Comission ? Transaction.Comission : 0) + (Transaction.Charges ? Transaction.Charges : 0)}, 
+            ${Transaction.FromEntityTypeRefEnumValueId}, 
+            ${Transaction.FromEntityId}, 
+            ${Transaction.ToEntityTypeRefEnumValueId}, 
+            ${Transaction.ToEntityId},
+            ${Transaction.CoreDeliveryTransactionDetailId}
+          );
+          `;
+        const addedTransactions = await postgre.query(sqlToTransferTransaction);
+
+        if (addedTransactions.rows != 1) throw `Something went wrong!`;
+      } else {
+        const sqlToUpdateTransaction = `
+          UPDATE dbo."CoreDeliveryTransactionDetail"
+          SET "AcceptedByEmployee" = true,
+          "EmployeeNotes" = ${notes && notes.trim() != "" ? "'" + notes + "'" : null}
+          WHERE "CoreDeliveryTransactionDetailId" = ${transactionId}
+          `;
+        await postgre.query(sqlToUpdateTransaction);
+        res.json({
+          isError: false,
+          msg: "Updated successfully",
+          data: {},
+        });
+      }
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }

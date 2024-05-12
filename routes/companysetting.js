@@ -21,7 +21,7 @@ const isAuthenticatedEmployee = (req, res, next) => {
       next();
     else throw new Error("Invalid Token!");
   } catch (error) {
-    res.json({ isError: true, msg: error });
+    res.json({ isError: true, msg: error.message });
   }
 };
 

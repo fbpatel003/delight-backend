@@ -37,7 +37,8 @@ const loginController = {
           console.log(error);
           throw error.message;
         }
-        if (!error) {
+
+        if (!error && response) {
           const permissionSql = `
             SELECT
             en."RefEnumValueId",

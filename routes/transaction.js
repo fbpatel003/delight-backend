@@ -25,6 +25,26 @@ const isAuthenticatedEmployee = (req, res, next) => {
   }
 };
 
+const isAuthenticatedDeliveryEmployee = (req, res, next) => {
+  const token = req.headers.authorization;
+  if (!token) return res.json({ isError: true, msg: "Token not found!" });
+
+  try {
+    const decoded = jwt.verify(token, process.env["JWT_SECRET"]);
+    req.session = { employee: decoded };
+    if (
+      req.session.employee &&
+      req.session.employee.EmployeeType == "DeliveryEmployee" &&
+      req.session.employee.RefEmployeeId &&
+      req.session.employee.permissions
+    )
+      next();
+    else throw new Error("Invalid Token!");
+  } catch (error) {
+    res.json({ isError: true, msg: error.message });
+  }
+};
+
 router.post(
   "/getTransactionMasterData",
   isAuthenticatedEmployee,
@@ -44,6 +64,16 @@ router.post(
   "/getTransactionDetailById",
   isAuthenticatedEmployee,
   TransactionController.getTransactionDetailById,
+);
+router.post(
+  "/getPendingDeliveryTransactionData",
+  isAuthenticatedDeliveryEmployee,
+  TransactionController.getPendingDeliveryTransactionsByDeliveryEmployeeId,
+);
+router.post(
+  "/acceptPendingDeliveryTransactionEmployee",
+  isAuthenticatedDeliveryEmployee,
+  TransactionController.acceptPendingDeliveryFromDeliveryEmployee,
 );
 
 module.exports = router;
