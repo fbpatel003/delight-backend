@@ -53,7 +53,6 @@ const isAuthenticatedCustomer = (req, res, next) => {
     const decoded = jwt.verify(token, process.env["JWT_SECRET"]);
     req.session = { customer: decoded };
 
-    console.log(req.session);
     if (
       req.session.customer &&
       req.session.customer.RefCRMCustomerId &&
@@ -100,6 +99,11 @@ router.post(
   "/getCustomerTransactionData",
   isAuthenticatedCustomer,
   TransactionController.getCustomerTransactionData,
+);
+router.post(
+  "/getCustomerDeliveryTransactionData",
+  isAuthenticatedCustomer,
+  TransactionController.getCustomerDeliveryTransactionData,
 );
 
 module.exports = router;
