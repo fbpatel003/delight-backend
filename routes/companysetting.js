@@ -55,5 +55,14 @@ router.get(
   "/getDynamicPagesDeliveryEmployeeIds",
   companySettingController.getDynamicPagesDeliveryEmployeeIds,
 );
-
+router.post(
+  "/getBasicDetails",
+  isAuthenticatedEmployee,
+  companySettingController.getBasicDetails,
+);
+router.post(
+  "/updatePassword",
+  isAuthenticatedEmployee,
+  companySettingController.updatePassword,
+);
 module.exports = router;

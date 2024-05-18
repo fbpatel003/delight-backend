@@ -1,4 +1,6 @@
 const postgre = require("../database");
+const bcrypt = require("bcrypt");
+const saltRounds = 11;
 
 const companySettingController = {
   getAllCompanySettings: async (req, res) => {
@@ -209,6 +211,122 @@ const companySettingController = {
         data: rows,
       });
       return;
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  getBasicDetails: async (req, res) => {
+    try {
+      const type = req.body.type;
+
+      if (type != "customer" && type != "employee")
+        throw "Invalid type passed!";
+
+      if (type == "customer") {
+        const sqlToGetCustomerDetails = `
+            SELECT
+            "RefCRMCustomerId" AS "Id",
+            "Name"
+            FROM dbo."RefCRMCustomer"
+      `;
+
+        const { rows } = await postgre.query(sqlToGetCustomerDetails);
+
+        res.json({
+          isError: false,
+          msg: "data loaded successfully",
+          data: { details: rows },
+        });
+        return;
+      } else {
+        const sqlToGetEmployeeDetails = `
+          SELECT
+          "RefEmployeeId" AS "Id",
+          e."Name"
+          FROM dbo."RefEmployee" e
+          INNER JOIN dbo."RefEmployeeType" et ON et."RefEmployeeTypeId" = e."RefEmployeeTypeId"
+          WHERE et."Code" <> 'Admin'
+          `;
+
+        const { rows } = await postgre.query(sqlToGetEmployeeDetails);
+
+        res.json({
+          isError: false,
+          msg: "data loaded successfully",
+          data: { details: rows },
+        });
+        return;
+      }
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  updatePassword: async (req, res) => {
+    try {
+      const type = req.body.type;
+      const password = req.body.password;
+      const passwordConfirm = req.body.confirmPassword;
+      const Id = req.body.Id;
+
+      if (type != "customer" && type != "employee")
+        throw "Invalid type passed!";
+
+      if (typeof Id != "number" || Id == 0) throw "Invalid Id passed!";
+
+      if (!password || typeof password != "string" || password.trim() == "")
+        throw "Password cannot be empty!";
+
+      if (password !== passwordConfirm) throw "Passwords do not match!";
+
+      if (type == "customer") {
+        const sqlToCheckIfCustomerExists = `
+          SELECT * FROM dbo."RefCRMCustomer" WHERE "RefCRMCustomerId" = ${Id}
+          `;
+        const { rows: check } = await postgre.query(sqlToCheckIfCustomerExists);
+        if (check.length == 0) throw "Customer does not exist!";
+
+        bcrypt.hash(password, saltRounds, async (err, hash) => {
+          if (err) {
+            console.log(err);
+            throw err.toString();
+          } else {
+            const sqlToUpdatePassword = `
+            UPDATE dbo."RefCRMCustomer" SET "Password" = '${hash}' WHERE "RefCRMCustomerId" = ${Id}
+            `;
+            await postgre.query(sqlToUpdatePassword);
+
+            res.json({
+              isError: false,
+              msg: `Password updated successfully!`,
+            });
+            return;
+          }
+        });
+      } else {
+        const sqlToCheckIfEmployeeExists = `
+          SELECT * FROM dbo."RefEmployee" WHERE "RefEmployeeId" = ${Id}
+          `;
+        const { rows: check } = await postgre.query(sqlToCheckIfEmployeeExists);
+        if (check.length == 0) throw "Employee does not exist!";
+
+        bcrypt.hash(password, saltRounds, async (err, hash) => {
+          if (err) {
+            console.log(err);
+            throw err.toString();
+          } else {
+            const sqlToUpdatePassword = `
+            UPDATE dbo."RefEmployee" SET "Password" = '${hash}' WHERE "RefEmployeeId" = ${Id}
+            `;
+            await postgre.query(sqlToUpdatePassword);
+
+            res.json({
+              isError: false,
+              msg: `Password updated successfully!`,
+            });
+            return;
+          }
+        });
+      }
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
