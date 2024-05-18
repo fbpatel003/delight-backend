@@ -1,11 +1,11 @@
--- Table: dbo.CoreTransactionDetail_Audit
+-- Table: dbo.CoreDeliveryTransactionDetail_Audit
 
--- DROP TABLE IF EXISTS dbo."CoreTransactionDetail_Audit";
+-- DROP TABLE IF EXISTS dbo."CoreDeliveryTransactionDetail_Audit";
 
-CREATE TABLE IF NOT EXISTS dbo."CoreTransactionDetail_Audit"
+CREATE TABLE IF NOT EXISTS dbo."CoreDeliveryTransactionDetail_Audit"
 (
     "AuditId" bigint NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 ),
-    "CoreTransactionDetailId" bigint NOT NULL,
+    "CoreDeliveryTransactionDetailId" bigint NOT NULL,
     "FromEntityTypeRefEnumValueId" integer NOT NULL,
     "FromEntityId" integer NOT NULL,
     "ToEntityTypeRefEnumValueId" integer NOT NULL,
@@ -14,7 +14,6 @@ CREATE TABLE IF NOT EXISTS dbo."CoreTransactionDetail_Audit"
     "Comission" double precision,
     "Charges" double precision,
     "Notes" text COLLATE pg_catalog."default",
-    "IsDelivery" boolean NOT NULL,
     "DeliveryRefEmployeeId" integer,
     "AcceptedByCustomer" boolean,
     "CustomerNotes" text COLLATE pg_catalog."default",
@@ -30,30 +29,27 @@ CREATE TABLE IF NOT EXISTS dbo."CoreTransactionDetail_Audit"
     "AddedOn" timestamp with time zone NOT NULL,
     "LastEditedByRefEmployeeId" integer NOT NULL,
     "LastEditedOn" timestamp with time zone NOT NULL,
-    "FromEntityUpdatedBalance" double precision NOT NULL,
-    "ToEntityUpdatedBalance" double precision NOT NULL,
+    "DepositDate" timestamp with time zone,
     "AuditDMLActionId" integer NOT NULL,
     "AuditDateTime" timestamp with time zone NOT NULL,
-    "DepositDate" timestamp with time zone,
-    "CoreDeliveryTransactionDetailId" bigint,
-    CONSTRAINT "CoreTransactionDetail_Audit_pkey" PRIMARY KEY ("AuditId"),
-    CONSTRAINT "FK_CoreTransactionDetail_AddedByRefEmployee" FOREIGN KEY ("AddedByRefEmployeeId")
+    CONSTRAINT "CoreDeliveryTransactionDetail_audit_pkey" PRIMARY KEY ("AuditId"),
+    CONSTRAINT "FK_CoreDeliveryTransactionDetail_AddedByRefEmployee" FOREIGN KEY ("AddedByRefEmployeeId")
         REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION,
-    CONSTRAINT "FK_CoreTransactionDetail_DeliveryRefEmployee" FOREIGN KEY ("DeliveryRefEmployeeId")
+    CONSTRAINT "FK_CoreDeliveryTransactionDetail_DeliveryRefEmployee" FOREIGN KEY ("DeliveryRefEmployeeId")
         REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION,
-    CONSTRAINT "FK_CoreTransactionDetail_FromEntityTypeRefEnumValue" FOREIGN KEY ("FromEntityTypeRefEnumValueId")
+    CONSTRAINT "FK_CoreDeliveryTransactionDetail_FromEntityTypeRefEnumValue" FOREIGN KEY ("FromEntityTypeRefEnumValueId")
         REFERENCES dbo."RefEnumValue" ("RefEnumValueId") MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION,
-    CONSTRAINT "FK_CoreTransactionDetail_LastEditedByRefEmployee" FOREIGN KEY ("LastEditedByRefEmployeeId")
+    CONSTRAINT "FK_CoreDeliveryTransactionDetail_LastEditedByRefEmployee" FOREIGN KEY ("LastEditedByRefEmployeeId")
         REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION,
-    CONSTRAINT "FK_CoreTransactionDetail_ToEntityTypeRefEnumValue" FOREIGN KEY ("ToEntityTypeRefEnumValueId")
+    CONSTRAINT "FK_CoreDeliveryTransactionDetail_ToEntityTypeRefEnumValue" FOREIGN KEY ("ToEntityTypeRefEnumValueId")
         REFERENCES dbo."RefEnumValue" ("RefEnumValueId") MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION
@@ -61,5 +57,5 @@ CREATE TABLE IF NOT EXISTS dbo."CoreTransactionDetail_Audit"
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS dbo."CoreTransactionDetail_Audit"
+ALTER TABLE IF EXISTS dbo."CoreDeliveryTransactionDetail_Audit"
     OWNER to postgree_test_0oll_user;

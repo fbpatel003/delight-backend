@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS dbo."CoreDeliveryTransactionDetail"
     "AddedOn" timestamp with time zone NOT NULL,
     "LastEditedByRefEmployeeId" integer NOT NULL,
     "LastEditedOn" timestamp with time zone NOT NULL,
+    "DepositDate" timestamp with time zone,
     CONSTRAINT "CoreDeliveryTransactionDetail_pkey" PRIMARY KEY ("CoreDeliveryTransactionDetailId"),
     CONSTRAINT "FK_CoreDeliveryTransactionDetail_AddedByRefEmployee" FOREIGN KEY ("AddedByRefEmployeeId")
         REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE

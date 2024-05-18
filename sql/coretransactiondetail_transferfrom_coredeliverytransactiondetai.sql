@@ -60,7 +60,9 @@ BEGIN
     "LastEditedByRefEmployeeId", 
     "LastEditedOn", 
     "FromEntityUpdatedBalance", 
-    "ToEntityUpdatedBalance"
+    "ToEntityUpdatedBalance",
+  "DepositDate",
+  "CoreDeliveryTransactionDetailId"
     )
   SELECT
     "FromEntityTypeRefEnumValueId", 
@@ -88,7 +90,9 @@ BEGIN
     addingrefemployeetypeid, 
     now(), 
     FromEntityUpdatedBalance,
-    ToEntityUpdatedBalance
+    ToEntityUpdatedBalance,
+  "DepositDate",
+  transactiondetailid
   FROM dbo."CoreDeliveryTransactionDetail"
   WHERE "CoreDeliveryTransactionDetailId" = transactiondetailid;
 

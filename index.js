@@ -17,7 +17,7 @@ app.use(
 );
 
 app.get("/", (req, res) => {
-    res.send("<h1>Delight API V1.0.0 - Created By FB</h1>");
+    res.send("<h1>Dynamic Enterprise API V1.0.0</h1><h4>Created By FB</h4>");
 });
 
 const loginRouter = require("./routes/login.js");
