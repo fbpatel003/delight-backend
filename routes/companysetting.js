@@ -35,5 +35,25 @@ router.post(
   isAuthenticatedEmployee,
   companySettingController.getAllCompanySettings,
 );
+router.get(
+  "/getDynamicPagesCustomerIds",
+  companySettingController.getDynamicPagesCustomerIds,
+);
+router.get(
+  "/getDynamicPagesEmployeeIds",
+  companySettingController.getDynamicPagesEmployeeIds,
+);
+router.get(
+  "/getDynamicPagesAdminEmployeeIds",
+  companySettingController.getDynamicPagesAdminEmployeeIds,
+);
+router.get(
+  "/getDynamicPagesManagingAndAdminEmployeeIds",
+  companySettingController.getDynamicPagesManagingAndAdminEmployeeIds,
+);
+router.get(
+  "/getDynamicPagesDeliveryEmployeeIds",
+  companySettingController.getDynamicPagesDeliveryEmployeeIds,
+);
 
 module.exports = router;

@@ -91,6 +91,11 @@ router.post(
   TransactionController.getPendingDeliveryTransactionsByDeliveryEmployeeId,
 );
 router.post(
+  "/getDeliveredTransactionData",
+  isAuthenticatedDeliveryEmployee,
+  TransactionController.getDeliveryTransactionsByDeliveryEmployeeId,
+);
+router.post(
   "/acceptPendingDeliveryTransactionEmployee",
   isAuthenticatedDeliveryEmployee,
   TransactionController.acceptPendingDeliveryFromDeliveryEmployee,
@@ -105,5 +110,9 @@ router.post(
   isAuthenticatedCustomer,
   TransactionController.getCustomerDeliveryTransactionData,
 );
-
+router.post(
+  "/acceptPendingDeliveryTransactionCustomer",
+  isAuthenticatedCustomer,
+  TransactionController.acceptPendingDeliveryFromCustomer,
+);
 module.exports = router;

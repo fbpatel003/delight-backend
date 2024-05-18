@@ -496,22 +496,23 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const employee = req.session.employee;
       const employeeId = employee.RefEmployeeId;
 
-      const sqlToGetCustomerEntityEnumTypes = `
+      if (employee.permissions.some((x) => x.Code == "CanSeePendingDelivery")) {
+        const sqlToGetCustomerEntityEnumTypes = `
         SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
         `;
 
-      const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
-      const customerTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Customer",
-      ).RefEnumValueId;
-      const agentTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Agent",
-      ).RefEnumValueId;
-      const bankTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Bank",
-      ).RefEnumValueId;
+        const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
+        const customerTypeRefEnumValueId = EnumTypes.rows.find(
+          (x) => x.Code == "Customer",
+        ).RefEnumValueId;
+        const agentTypeRefEnumValueId = EnumTypes.rows.find(
+          (x) => x.Code == "Agent",
+        ).RefEnumValueId;
+        const bankTypeRefEnumValueId = EnumTypes.rows.find(
+          (x) => x.Code == "Bank",
+        ).RefEnumValueId;
 
-      const sqlToGetEntityNameDetails = `
+        const sqlToGetEntityNameDetails = `
       SELECT
       ac."RefEntityAccountId",
       ac."EntityTypeRefEnumValueId",
@@ -530,14 +531,16 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
         `;
 
-      const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
+        const EntityNameDetails = await postgre.query(
+          sqlToGetEntityNameDetails,
+        );
 
-      const nameDetails = new Map();
-      EntityNameDetails.rows.forEach((t) => {
-        nameDetails.set(t.RefEntityAccountId, t);
-      });
+        const nameDetails = new Map();
+        EntityNameDetails.rows.forEach((t) => {
+          nameDetails.set(t.RefEntityAccountId, t);
+        });
 
-      const sqlToGetTransactions = `
+        const sqlToGetTransactions = `
   SELECT
   tran."CoreDeliveryTransactionDetailId",
   fromName."RefEntityAccountId" AS FromAccountId,
@@ -567,16 +570,123 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
   ORDER BY tran."CoreDeliveryTransactionDetailId" DESC;
             `;
 
-      const Transactions = await postgre.query(sqlToGetTransactions);
+        const Transactions = await postgre.query(sqlToGetTransactions);
 
-      res.json({
-        isError: false,
-        msg: "Data loaded successfully",
-        data: {
-          Transactions: Transactions.rows,
-          NameDetailsArray: Array.from(nameDetails.entries()),
-        },
-      });
+        res.json({
+          isError: false,
+          msg: "Data loaded successfully",
+          data: {
+            Transactions: Transactions.rows,
+            NameDetailsArray: Array.from(nameDetails.entries()),
+          },
+        });
+      } else {
+        res.json({
+          isError: true,
+          msg: "You don't have permission to see this data!",
+        });
+      }
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  getDeliveryTransactionsByDeliveryEmployeeId: async (req, res) => {
+    try {
+      const employee = req.session.employee;
+      const employeeId = employee.RefEmployeeId;
+      const fromDate = req.body.fromDate;
+      const toDate = req.body.toDate;
+
+      if (
+        employee.permissions.some((x) => x.Code == "CanSeeCompletedDelivery")
+      ) {
+        const sqlToGetCustomerEntityEnumTypes = `
+        SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
+        `;
+
+        const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
+        const customerTypeRefEnumValueId = EnumTypes.rows.find(
+          (x) => x.Code == "Customer",
+        ).RefEnumValueId;
+        const agentTypeRefEnumValueId = EnumTypes.rows.find(
+          (x) => x.Code == "Agent",
+        ).RefEnumValueId;
+        const bankTypeRefEnumValueId = EnumTypes.rows.find(
+          (x) => x.Code == "Bank",
+        ).RefEnumValueId;
+
+        const sqlToGetEntityNameDetails = `
+      SELECT
+      ac."RefEntityAccountId",
+      ac."EntityTypeRefEnumValueId",
+      enu."Code",
+      ac."EntityId",
+      CASE
+        WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
+        ELSE agent."Name"
+      END AS EntityName
+      FROM dbo."RefEntityAccount" ac
+      INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
+      LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId"
+      LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
+      LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
+      WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
+        `;
+
+        const EntityNameDetails = await postgre.query(
+          sqlToGetEntityNameDetails,
+        );
+
+        const nameDetails = new Map();
+        EntityNameDetails.rows.forEach((t) => {
+          nameDetails.set(t.RefEntityAccountId, t);
+        });
+
+        const sqlToGetTransactions = `
+  SELECT
+  tran."CoreTransactionDetailId",
+  fromName."RefEntityAccountId" AS FromAccountId,
+  toName."RefEntityAccountId" AS ToAccountId,
+  tran."Amount",
+  tran."Comission",
+  tran."Charges",
+  added."Name" AS AddedEmployeeName,
+  tran."AddedOn",
+  edited."Name" AS EditedEmployeeName,
+  tran."LastEditedOn",
+  tran."EmployeeNotes",
+  tran."500RupeesNotes" AS rupees500notes,
+  tran."200RupeesNotes" AS rupees200notes,
+  tran."100RupeesNotes" AS rupees100notes,
+  tran."50RupeesNotes" AS rupees50notes,
+  tran."20RupeesNotes" AS rupees20notes,
+  tran."10RupeesNotes" AS rupees10notes
+  FROM dbo."CoreTransactionDetail" tran
+  INNER JOIN dbo."RefEntityAccount" fromName ON fromName."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND fromName."EntityId" = tran."FromEntityId"
+  INNER JOIN dbo."RefEntityAccount" toName ON toName."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND toName."EntityId" = tran."ToEntityId"
+  INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
+  INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
+  WHERE date(tran."AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' AND tran."DeliveryRefEmployeeId" = ${employeeId}
+  ORDER BY tran."CoreTransactionDetailId" DESC;
+            `;
+
+        const Transactions = await postgre.query(sqlToGetTransactions);
+
+        res.json({
+          isError: false,
+          msg: "Data loaded successfully",
+          data: {
+            Transactions: Transactions.rows,
+            NameDetailsArray: Array.from(nameDetails.entries()),
+          },
+        });
+      } else {
+        res.json({
+          isError: true,
+          msg: "You don't have permission to see this data!",
+        });
+      }
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
@@ -611,9 +721,13 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
             ${Transaction.CoreDeliveryTransactionDetailId}
           );
           `;
-        const addedTransactions = await postgre.query(sqlToTransferTransaction);
+        await postgre.query(sqlToTransferTransaction);
 
-        if (addedTransactions.rows != 1) throw `Something went wrong!`;
+        res.json({
+          isError: false,
+          msg: "Delivery Completed Successfully.",
+          data: {},
+        });
       } else {
         const sqlToUpdateTransaction = `
           UPDATE dbo."CoreDeliveryTransactionDetail"
@@ -624,7 +738,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         await postgre.query(sqlToUpdateTransaction);
         res.json({
           isError: false,
-          msg: "Updated successfully",
+          msg: "Updated successfully, Delivery Pending!",
           data: {},
         });
       }
@@ -858,6 +972,60 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
           CustomerAccountId: CustomerAccountId,
         },
       });
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  acceptPendingDeliveryFromCustomer: async (req, res) => {
+    try {
+      const notes = req.body.notes;
+      const transactionId = req.body.transactionId;
+
+      const sqlToGetTransaction = `
+        SELECT
+        *
+        FROM dbo."CoreDeliveryTransactionDetail"
+        WHERE "CoreDeliveryTransactionDetailId" = ${transactionId};
+        `;
+
+      const Transactions = await postgre.query(sqlToGetTransaction);
+      if (Transactions.rows == 0) throw "Invalid Transaction Id";
+
+      const Transaction = Transactions.rows[0];
+      if (Transaction.AcceptedByEmployee) {
+        const sqlToTransferTransaction = `
+          SELECT dbo.coretransactiondetail_transferfrom_coredeliverytransactiondetai(
+            ${Transaction.AddedByRefEmployeeId}, 
+            ${notes && notes.trim() != "" ? "'" + notes + "'" : null}, 
+            ${Transaction.EmployeeNotes && Transaction.EmployeeNotes.trim() != "" ? "'" + Transaction.EmployeeNotes + "'" : null}, 
+            ${Transaction.Amount + (Transaction.Comission ? Transaction.Comission : 0) + (Transaction.Charges ? Transaction.Charges : 0)}, 
+            ${Transaction.FromEntityTypeRefEnumValueId}, 
+            ${Transaction.FromEntityId}, 
+            ${Transaction.ToEntityTypeRefEnumValueId}, 
+            ${Transaction.ToEntityId},
+            ${Transaction.CoreDeliveryTransactionDetailId}
+          );
+          `;
+        await postgre.query(sqlToTransferTransaction);
+        res.json({
+          isError: false,
+          msg: "Delivery Completed Successfully.",
+          data: {},
+        });
+      } else {
+        const sqlToUpdateTransaction = `
+          UPDATE dbo."CoreDeliveryTransactionDetail"
+          SET "AcceptedByCustomer" = true,
+          "CustomerNotes" = ${notes && notes.trim() != "" ? "'" + notes + "'" : null}
+          WHERE "CoreDeliveryTransactionDetailId" = ${transactionId}
+          `;
+        await postgre.query(sqlToUpdateTransaction);
+        res.json({
+          isError: false,
+          msg: "Updated successfully, Delivery Pending!",
+          data: {},
+        });
+      }
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
