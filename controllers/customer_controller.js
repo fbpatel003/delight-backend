@@ -17,26 +17,30 @@ const customerController = {
       const confirmPassword = req.body.confirmPassword;
       const permissionCodes = req.body.permissionCodes;
 
-      const permissionToAddCustomer = employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanAddNewCustomer");
+      const permissionToAddCustomer = employee.permissions.some(
+        (obj) => obj.hasOwnProperty("Code") && obj.Code === "CanAddNewCustomer",
+      );
 
       if (!permissionToAddCustomer)
-        throw 'User is Unauthorized to add Customer';
+        throw "User is Unauthorized to add Customer";
 
-      if (name == null || name.trim() == '')
-        throw 'Name can not be empty!'
+      if (name == null || name.trim() == "") throw "Name can not be empty!";
 
       if (password != confirmPassword)
-        throw 'Passwords does not match with Confirm Password!'
+        throw "Passwords does not match with Confirm Password!";
 
-      if (password == null || password.trim() == '')
-        throw 'Password can not be empty!'
+      if (password == null || password.trim() == "")
+        throw "Password can not be empty!";
 
-      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefCRMCustomer" WHERE "CustomerLoginId" = '${loginId}'`
+      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefCRMCustomer" WHERE "CustomerLoginId" = '${loginId}'`;
 
       const { rows: row2 } = await postgre.query(sqlToCheckDuplicateLoginId);
 
       if (row2 != null && row2.length > 0) {
-        res.json({ isError: true, msg: "Customer with login id " + loginId + " already exists!" });
+        res.json({
+          isError: true,
+          msg: "Customer with login id " + loginId + " already exists!",
+        });
         return;
       }
 
@@ -45,8 +49,7 @@ const customerController = {
           console.log(err);
           throw err.toString();
         } else {
-          const sql =
-            `
+          const sql = `
             SELECT dbo.refcrmcustomer_insert(
               ${RefEmployeeId}, 
               '${permissionCodes}', 
@@ -57,20 +60,24 @@ const customerController = {
               '${loginId}', 
               '${hash}'
             )
-              `
-            ;
+              `;
           const { rows } = await postgre.query(sql);
 
           if (rows == null || rows.length == 0) {
-            res.json({ isError: true, msg: "Something went wrong! could not added Customer" });
+            res.json({
+              isError: true,
+              msg: "Something went wrong! could not added Customer",
+            });
             return;
           } else {
-            res.json({ isError: false, msg: `Customer Added Successfully, Please Refresh Deploy Link for ${name} to coninue.` });
+            res.json({
+              isError: false,
+              msg: `Customer Added Successfully, Please Refresh Deploy Link for ${name} to coninue.`,
+            });
             return;
           }
         }
       });
-
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
@@ -79,7 +86,9 @@ const customerController = {
     try {
       const employee = req.session.employee;
 
-      const permissionToAddCustomer = employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanAddNewCustomer");
+      const permissionToAddCustomer = employee.permissions.some(
+        (obj) => obj.hasOwnProperty("Code") && obj.Code === "CanAddNewCustomer",
+      );
 
       var customerPermission = [];
 
@@ -95,7 +104,11 @@ const customerController = {
         customerPermission = [...allPermissions.rows];
       }
 
-      const permissionToSeeAndUpdateCustomer = employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanSeeAndUpdateExistingCustomer");
+      const permissionToSeeAndUpdateCustomer = employee.permissions.some(
+        (obj) =>
+          obj.hasOwnProperty("Code") &&
+          obj.Code === "CanSeeAndUpdateExistingCustomer",
+      );
       var customerMasterData = [];
 
       if (permissionToSeeAndUpdateCustomer) {
@@ -112,7 +125,7 @@ const customerController = {
         FROM dbo."RefCRMCustomer" cu
         INNER JOIN dbo."RefEmployee" emp ON emp."RefEmployeeId" = cu."AddedByRefEmployeeId"
         INNER JOIN dbo."RefEmployee" lastEmp ON lastEmp."RefEmployeeId" = cu."LastEditedByRefEmployeeId"
-        INNER JOIN dbo."RefEntityAccount" acc ON acc."EntityId" = emp."RefEmployeeId"
+        INNER JOIN dbo."RefEntityAccount" acc ON acc."EntityId" = cu."RefCRMCustomerId"
         INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = acc."EntityTypeRefEnumValueId"
         WHERE enu."Code" = 'Customer'
         ORDER BY cu."RefCRMCustomerId"
@@ -121,12 +134,11 @@ const customerController = {
         customerMasterData = await postgre.query(sql2);
       }
 
-      const sqlprofile =
-        `
+      const sqlprofile = `
       SELECT DISTINCT
       "Name"
       FROM dbo."RefComissionProfile"
-      `
+      `;
       const profileNames = await postgre.query(sqlprofile);
 
       res.json({
@@ -136,10 +148,9 @@ const customerController = {
           employee,
           customerPermission,
           profileNames: profileNames.rows,
-          customerMasterData: customerMasterData.rows
-        }
-      })
-
+          customerMasterData: customerMasterData.rows,
+        },
+      });
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
@@ -148,13 +159,16 @@ const customerController = {
     try {
       const RefCRMCustomerId = req.body.RefCRMCustomerId;
 
-      const permissionToEditCustomer = req.session.employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanSeeAndUpdateExistingCustomer");
+      const permissionToEditCustomer = req.session.employee.permissions.some(
+        (obj) =>
+          obj.hasOwnProperty("Code") &&
+          obj.Code === "CanSeeAndUpdateExistingCustomer",
+      );
 
       if (!permissionToEditCustomer)
-        throw 'User is Unauthorized to edit Customer';
+        throw "User is Unauthorized to edit Customer";
 
-      const sqlEmployee =
-        `
+      const sqlEmployee = `
         SELECT "RefCRMCustomerId", 
         "Name", 
         "MobileNumber", 
@@ -165,26 +179,28 @@ const customerController = {
         FROM dbo."RefCRMCustomer"
         WHERE "RefCRMCustomerId" = ${RefCRMCustomerId}
         ;
-      `
+      `;
       const { rows: row } = await postgre.query(sqlEmployee);
 
       if (row == null && row.length == 0) {
-        throw 'Invalid Customer Id!';
+        throw "Invalid Customer Id!";
       }
 
-      const sqlPermission =
-        `
+      const sqlPermission = `
       SELECT
       v.*
       FROM dbo."SecEntityPermision" s
       INNER JOIN dbo."RefEnumValue" v ON v."RefEnumValueId" = s."PermissionRefEnumValueId"
       WHERE s."EntityTypeCode" = 'C' AND s."EntityId" = ${RefCRMCustomerId}
-      `
+      `;
 
       const { rows: row2 } = await postgre.query(sqlPermission);
 
-      res.json({ isError: false, msg: 'Data Loaded.', data: { customerData: row, premissions: row2 } })
-
+      res.json({
+        isError: false,
+        msg: "Data Loaded.",
+        data: { customerData: row, premissions: row2 },
+      });
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
@@ -201,24 +217,29 @@ const customerController = {
       const defaultProfile = req.body.defaultProfile;
       const IsActive = req.body.IsActive;
 
-      const permissionToEditCustomer = req.session.employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanSeeAndUpdateExistingCustomer");
+      const permissionToEditCustomer = req.session.employee.permissions.some(
+        (obj) =>
+          obj.hasOwnProperty("Code") &&
+          obj.Code === "CanSeeAndUpdateExistingCustomer",
+      );
 
       if (!permissionToEditCustomer)
-        throw 'User is Unauthorized to edit Customer';
+        throw "User is Unauthorized to edit Customer";
 
-      if (name == null || name.trim() == '')
-        throw 'Name can not be empty!'
+      if (name == null || name.trim() == "") throw "Name can not be empty!";
 
-      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefCRMCustomer" WHERE "CustomerLoginId" = '${loginId} AND "RefCRMCustomerId" <> ${RefCRMCustomerId}'`
+      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefCRMCustomer" WHERE "CustomerLoginId" = '${loginId} AND "RefCRMCustomerId" <> ${RefCRMCustomerId}'`;
       const { rows: rows } = await postgre.query(sqlToCheckDuplicateLoginId);
 
       if (rows != null && rows.length > 0) {
-        res.json({ isError: true, msg: "Customer with login id " + loginId + " already exists!" });
+        res.json({
+          isError: true,
+          msg: "Customer with login id " + loginId + " already exists!",
+        });
         return;
       }
 
-      const sqlToUpdate =
-        `
+      const sqlToUpdate = `
       SELECT dbo.refcrmcustomer_update(
         ${UserRefEmployeeId}, 
         '${permissionCodes}', 
@@ -230,12 +251,14 @@ const customerController = {
         ${IsActive},
         ${RefCRMCustomerId}
       );
-      `
+      `;
       const { rows: rows4 } = await postgre.query(sqlToUpdate);
 
       if (rows4 != null && rows4.length > 0)
-        res.json({ isError: false, msg: 'Customer Details Updated Successfully.' });
-
+        res.json({
+          isError: false,
+          msg: "Customer Details Updated Successfully.",
+        });
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
