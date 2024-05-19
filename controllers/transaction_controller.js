@@ -207,6 +207,7 @@ const TransactionController = {
         Rupees50,
         Rupees20,
         Rupees10,
+        DepositDate,
       } = req.body;
 
       if (
@@ -235,6 +236,9 @@ const TransactionController = {
         typeof Rupees10 != "number"
       )
         throw "Invalid data";
+
+      if (!DepositDate || isNaN(Date.parse(DepositDate)))
+        throw `Invalid Deposit Date!`;
 
       if (isDelivery && typeof DeliveryEmployeeId != "number")
         throw "Invalid Delivery Employee Id";
@@ -275,7 +279,8 @@ const TransactionController = {
             ${Rupees100},
             ${Rupees50},
             ${Rupees20},
-            ${Rupees10}
+            ${Rupees10},
+            '${new Date(DepositDate).toISOString()}'
           );
         `;
         const result = await postgre.query(sql);
@@ -299,7 +304,8 @@ const TransactionController = {
             ${Rupees50},
             ${Rupees20},
             ${Rupees10},
-            ${DeliveryEmployeeId}
+            ${DeliveryEmployeeId},
+            '${new Date(DepositDate).toISOString()}'
           );
         `;
         const result = await postgre.query(sql);
@@ -466,7 +472,8 @@ tran."AddedOn",
 edited."Name" AS EditedEmployeeName,
 tran."LastEditedOn",
 tran."FromEntityUpdatedBalance",
-tran."ToEntityUpdatedBalance"
+tran."ToEntityUpdatedBalance",
+tran."DepositDate"
 FROM dbo."CoreTransactionDetail" tran
 INNER JOIN dbo."RefEntityAccount" fromName ON fromName."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND fromName."EntityId" = tran."FromEntityId"
 INNER JOIN dbo."RefEntityAccount" toName ON toName."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND toName."EntityId" = tran."ToEntityId"

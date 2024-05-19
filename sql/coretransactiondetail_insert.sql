@@ -18,7 +18,9 @@ CREATE OR REPLACE FUNCTION dbo.coretransactiondetail_insert(
 	rupees100notes integer,
 	rupees50notes integer,
 	rupees20notes integer,
-	rupees10notes integer)
+	rupees10notes integer,
+	depositdate text
+	)
 		RETURNS TABLE(coretransactiondetailid bigint) 
 		LANGUAGE 'plpgsql'
 		COST 100
@@ -74,7 +76,8 @@ BEGIN
 		"LastEditedByRefEmployeeId", 
 		"LastEditedOn", 
 		"FromEntityUpdatedBalance", 
-		"ToEntityUpdatedBalance")
+		"ToEntityUpdatedBalance",
+		"DepositDate")
 	VALUES (
 		FromEntityTypeId,
 		from_entityId,
@@ -96,7 +99,8 @@ BEGIN
 		adding_refemployeetypeid,
 		now(),
 		FromEntityUpdatedBalance,
-		ToEntityUpdatedBalance
+		ToEntityUpdatedBalance,
+		date(to_timestamp(depositdate,'YYYY-MM-DDTHH24:MI:SS.MSZ'))
 		);
 
 	UPDATE dbo."RefEntityAccount"

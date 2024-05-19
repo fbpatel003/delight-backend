@@ -18,7 +18,8 @@ CREATE OR REPLACE FUNCTION dbo.coredeliverytransactiondetail_insert(
 	rupees50notes integer,
 	rupees20notes integer,
 	rupees10notes integer,
-	delivery_employee_id integer)
+	delivery_employee_id integer,
+	depositdate text)
 		RETURNS TABLE(coredeliverytransactiondetailid bigint) 
 		LANGUAGE 'plpgsql'
 		COST 100
@@ -62,7 +63,8 @@ BEGIN
 	"AddedByRefEmployeeId", 
 	"AddedOn", 
 	"LastEditedByRefEmployeeId", 
-	"LastEditedOn"
+	"LastEditedOn",
+	"DepositDate"
 	)
 	VALUES (
 		FromEntityTypeId,
@@ -85,7 +87,8 @@ BEGIN
 		adding_refemployeetypeid,
 		now(),
 		adding_refemployeetypeid,
-		now()
+		now(),
+		date(to_timestamp(depositdate,'YYYY-MM-DDTHH24:MI:SS.MSZ'))
 		);
 
 		RETURN QUERY 
