@@ -1037,6 +1037,47 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       res.json({ isError: true, msg: error.toString() });
     }
   },
+  getDeliveryTransactionDetailById: async (req, res) => {
+    try {
+      const transactionId = req.body.transactionId;
+
+      const sqlToGetTransactions = `
+  SELECT
+  tran."CoreDeliveryTransactionDetailId",
+  tran."Amount",
+  tran."Comission",
+  tran."Charges",
+  tran."Notes",
+  tran."CustomerNotes",
+  tran."EmployeeNotes",
+  tran."500RupeesNotes" AS rupees500,
+  tran."200RupeesNotes" AS rupees200,
+  tran."100RupeesNotes" AS rupees100,
+  tran."50RupeesNotes" AS rupees50,
+  tran."20RupeesNotes" AS rupees20,
+  tran."10RupeesNotes" AS rupees10,
+  deli."Name" AS DeliveryEmployeeName,
+  tran."DepositDate"
+  FROM dbo."CoreDeliveryTransactionDetail" tran
+  INNER JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
+  WHERE tran."CoreDeliveryTransactionDetailId" = ${transactionId};
+            `;
+
+      const Transactions = await postgre.query(sqlToGetTransactions);
+
+      if (Transactions.rows.length == 0) throw "Invalid Transaction Id";
+
+      res.json({
+        isError: false,
+        msg: "Data loaded successfully",
+        data: {
+          Transaction: Transactions.rows[0],
+        },
+      });
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
 };
 
 module.exports = TransactionController;

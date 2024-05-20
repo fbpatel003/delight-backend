@@ -115,4 +115,10 @@ router.post(
   isAuthenticatedCustomer,
   TransactionController.acceptPendingDeliveryFromCustomer,
 );
+router.post(
+  "/getDeliveryTransactionDetailById",
+  isAuthenticatedEmployee,
+  TransactionController.getDeliveryTransactionDetailById,
+);
+
 module.exports = router;
