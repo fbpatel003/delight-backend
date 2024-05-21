@@ -30,7 +30,11 @@ VALUES
 ('Customer Permission Type', 'Can See Added Charges In A Transaction', 'CanSeeAddedChargesInATransaction'),
 ('EntityType', 'Customer','Customer'),
 ('EntityType', 'Bank', 'Bank'),
-('EntityType', 'Agent', 'Agent');
+('EntityType', 'Agent', 'Agent'),
+('Managing Employee Permission Type','Can Edit Pending Delivery Transaction','CanEditPendingDeliveryTransaction'),
+('Managing Employee Permission Type','Can Delete Pending Delivery Transaction','CanDeletePendingDeliveryTransaction'),
+('Managing Employee Permission Type','Can Edit Transaction','CanEditTransaction'),
+('Managing Employee Permission Type','Can Delete Transaction','CanDeleteTransaction');
 
 
 

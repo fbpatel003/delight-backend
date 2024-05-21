@@ -46,3 +46,9 @@ INSERT INTO dbo."RefEnumValue" ("EnumTypeName", "EnumValueName", "Code")
 VALUES ('EntityType', 'Customer','Customer'),
 ('EntityType', 'Bank', 'Bank'),
 ('EntityType', 'Agent', 'Agent');
+
+INSERT INTO dbo."RefEnumValue"("EnTypeName","EnumValueName","Code") VALUES
+('Managing Employee Permission Type','Can Edit Pending Delivery Transaction','CanEditPendingDeliveryTransaction'),
+('Managing Employee Permission Type','Can Delete Pending Delivery Transaction','CanDeletePendingDeliveryTransaction'),
+('Managing Employee Permission Type','Can Edit Transaction','CanEditTransaction'),
+('Managing Employee Permission Type','Can Delete Transaction','CanDeleteTransaction');

@@ -240,6 +240,9 @@ const TransactionController = {
       if (!DepositDate || isNaN(Date.parse(DepositDate)))
         throw `Invalid Deposit Date!`;
 
+      var dateOfDeposit = new Date(DepositDate);
+      dateOfDeposit.setDate(dateOfDeposit.getDate() + 1);
+
       if (isDelivery && typeof DeliveryEmployeeId != "number")
         throw "Invalid Delivery Employee Id";
 
@@ -280,7 +283,7 @@ const TransactionController = {
             ${Rupees50},
             ${Rupees20},
             ${Rupees10},
-            '${new Date(DepositDate).toISOString()}'
+            '${dateOfDeposit.toISOString()}'
           );
         `;
         const result = await postgre.query(sql);
@@ -305,7 +308,7 @@ const TransactionController = {
             ${Rupees20},
             ${Rupees10},
             ${DeliveryEmployeeId},
-            '${new Date(DepositDate).toISOString()}'
+            '${dateOfDeposit.toISOString()}'
           );
         `;
         const result = await postgre.query(sql);
@@ -1073,6 +1076,125 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         data: {
           Transaction: Transactions.rows[0],
         },
+      });
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  updateDeliveryTransaction: async (req, res) => {
+    try {
+      const employee = req.session.employee;
+      if (
+        employee.EmployeeType != "Admin" &&
+        employee.EmployeeType != "ManagingEmployee"
+      )
+        throw "Invalid Employee to access";
+
+      const permissionToUpdateDeliveryTransaction = employee.permissions.some(
+        (obj) =>
+          obj.hasOwnProperty("Code") &&
+          obj.Code === "CanEditPendingDeliveryTransaction",
+      );
+
+      if (!permissionToUpdateDeliveryTransaction)
+        throw "Invalid Employee to access";
+
+      const {
+        CoreDeliveryTransactionDetailId,
+        Amount,
+        Comission,
+        Charges,
+        Notes,
+        rupees500,
+        rupees200,
+        rupees100,
+        rupees50,
+        rupees20,
+        rupees10,
+        DepositDate,
+      } = req.body;
+
+      if (
+        typeof Amount != "number" ||
+        typeof rupees500 != "number" ||
+        typeof rupees200 != "number" ||
+        typeof rupees100 != "number" ||
+        typeof rupees50 != "number" ||
+        typeof rupees20 != "number" ||
+        typeof rupees10 != "number"
+      )
+        throw "Invalid data";
+
+      if (!DepositDate || isNaN(Date.parse(DepositDate)))
+        throw `Invalid Deposit Date!`;
+
+      var dateOfDeposit = new Date(DepositDate);
+      dateOfDeposit.setDate(dateOfDeposit.getDate() + 1);
+
+      const totalAmount =
+        Amount +
+        (Comission && typeof Comission == "number" ? Comission : 0) +
+        (Charges && typeof Charges == "number" ? Charges : 0);
+
+      if (
+        Math.abs(
+          rupees500 * 500 +
+            rupees200 * 200 +
+            rupees100 * 100 +
+            rupees50 * 50 +
+            rupees20 * 20 +
+            rupees10 * 10 -
+            totalAmount,
+        ) >= 10
+      )
+        throw "Invalid Notes Count !";
+
+      const sqlToCheckForUpdate = `
+        SELECT
+        *
+        FROM dbo."CoreDeliveryTransactionDetail"
+        WHERE "CoreDeliveryTransactionDetailId" = ${CoreDeliveryTransactionDetailId}
+          AND "Amount"=${Amount}
+          AND	coalesce("Comission",0)=${Comission && typeof Comission == "number" ? Comission : 0}
+          AND	coalesce("Charges",0)=${Charges && typeof Charges == "number" ? Charges : 0}
+          AND "Notes"=${Notes && typeof Notes == "string" && Notes.trim() != "" ? "'" + Notes + "'" : null}
+          AND "500RupeesNotes"=${rupees500}
+          AND "200RupeesNotes"=${rupees200}
+          AND "100RupeesNotes"=${rupees100}
+          AND "50RupeesNotes"=${rupees50}
+          AND "20RupeesNotes"=${rupees20}
+          AND "10RupeesNotes"=${rupees10}
+          AND "DepositDate"=date(to_timestamp('${dateOfDeposit.toISOString()}','YYYY-MM-DDTHH24:MI:SS.MSZ'));
+        `;
+
+      const checkedResult = await postgre.query(sqlToCheckForUpdate);
+      if (checkedResult.rows.count > 0)
+        throw "Nothing to update in Transaction!";
+
+      const sqlToUpdate = `
+          UPDATE dbo."CoreDeliveryTransactionDetail"
+            SET 
+            "Amount"=${Amount}, 
+            "Comission"=${Comission && typeof Comission == "number" ? Comission : null}, 
+            "Charges"=${Charges && typeof Charges == "number" ? Charges : null}, 
+            "Notes"=${Notes && typeof Notes == "string" && Notes.trim() != "" ? "'" + Notes + "'" : null}, 
+            "500RupeesNotes"=${rupees500}, 
+            "200RupeesNotes"=${rupees200}, 
+            "100RupeesNotes"=${rupees100}, 
+            "50RupeesNotes"=${rupees50}, 
+            "20RupeesNotes"=${rupees20}, 
+            "10RupeesNotes"=${rupees10}, 
+            "LastEditedByRefEmployeeId"=${employee.RefEmployeeId}, 
+            "LastEditedOn"=now(), 
+            "DepositDate"=date('${dateOfDeposit.toISOString()}')
+            WHERE "CoreDeliveryTransactionDetailId" = ${CoreDeliveryTransactionDetailId};
+        `;
+      await postgre.query(sqlToUpdate);
+
+      res.json({
+        isError: false,
+        msg: "Transaction Updated Successfully",
+        data: {},
       });
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
