@@ -41,4 +41,7 @@ app.use("/api/transaction", transactionRouter);
 const generateExcelRouter = require("./routes/generateExcel.js");
 app.use("/api/generate", generateExcelRouter);
 
+const ledgerRouter = require("./routes/ledger.js");
+app.use("/api/ledger", ledgerRouter);
+
 app.listen(15047, () => console.log("Server is running on port 15047"));
