@@ -125,5 +125,10 @@ router.post(
   isAuthenticatedEmployee,
   TransactionController.updateDeliveryTransaction,
 );
+router.post(
+  "/getAddTransactionData",
+  isAuthenticatedEmployee,
+  TransactionController.getAddTransactionData,
+);
 
 module.exports = router;
