@@ -89,7 +89,7 @@ const TransactionController = {
       CASE
         WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
         WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        ELSE agent."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
       END AS EntityName
       FROM dbo."RefEntityAccount" ac
       INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
@@ -360,7 +360,7 @@ const TransactionController = {
       CASE
         WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
         WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        ELSE agent."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
       END AS EntityName
       FROM dbo."RefEntityAccount" ac
       INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
@@ -531,7 +531,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       CASE
         WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
         WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        ELSE agent."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
       END AS EntityName
       FROM dbo."RefEntityAccount" ac
       INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
@@ -634,6 +634,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       CASE
         WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
         WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
         ELSE agent."Name"
       END AS EntityName
       FROM dbo."RefEntityAccount" ac
@@ -787,7 +788,8 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       CASE
         WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
         WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        ELSE agent."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
       END AS EntityName
       FROM dbo."RefEntityAccount" ac
       INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
@@ -901,7 +903,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       CASE
         WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
         WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        ELSE agent."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
       END AS EntityName
       FROM dbo."RefEntityAccount" ac
       INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"

@@ -3,10 +3,6 @@ CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS 
 				IF (TG_OP = 'DELETE') THEN
 						INSERT INTO dbo."CoreTransactionDetail_Audit"(
 			"CoreTransactionDetailId", 
-			"FromEntityTypeRefEnumValueId", 
-			"FromEntityId", 
-			"ToEntityTypeRefEnumValueId", 
-			"ToEntityId", 
 			"Amount", 
 			"Comission", 
 			"Charges", 
@@ -31,14 +27,15 @@ CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS 
 			"ToEntityUpdatedBalance", 
 			"DepositDate",
 			"CoreDeliveryTransactionDetailId",
+			"FromAccountId",
+				"ToAccountId",
+				"UTRNumber",
+				"BranchName",
+				"BranchCode",
 			"AuditDMLActionId", 
 			"AuditDateTime")
 			SELECT
 			OLD."CoreTransactionDetailId", 
-			OLD."FromEntityTypeRefEnumValueId", 
-			OLD."FromEntityId", 
-			OLD."ToEntityTypeRefEnumValueId", 
-			OLD."ToEntityId", 
 			OLD."Amount", 
 			OLD."Comission", 
 			OLD."Charges", 
@@ -63,15 +60,16 @@ CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS 
 			OLD."ToEntityUpdatedBalance", 
 			OLD."DepositDate",
 			OLD."CoreDeliveryTransactionDetailId",
+			OLD."FromAccountId",
+				OLD."ToAccountId",
+				OLD."UTRNumber",
+				OLD."BranchName",
+				OLD."BranchCode",
 			-1, 
 			now();
 				ELSIF (TG_OP = 'UPDATE') THEN
 						INSERT INTO dbo."CoreTransactionDetail_Audit"(
 			"CoreTransactionDetailId", 
-			"FromEntityTypeRefEnumValueId", 
-			"FromEntityId", 
-			"ToEntityTypeRefEnumValueId", 
-			"ToEntityId", 
 			"Amount", 
 			"Comission", 
 			"Charges", 
@@ -96,6 +94,11 @@ CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS 
 			"ToEntityUpdatedBalance", 
 			"DepositDate",
 			"CoreDeliveryTransactionDetailId",
+			"FromAccountId",
+				"ToAccountId",
+				"UTRNumber",
+				"BranchName",
+				"BranchCode",
 			"AuditDMLActionId", 
 			"AuditDateTime")
 			SELECT
@@ -128,15 +131,16 @@ CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS 
 			NEW."ToEntityUpdatedBalance", 
 			NEW."DepositDate",
 			NEW."CoreDeliveryTransactionDetailId",
+			NEW."FromAccountId",
+				NEW."ToAccountId",
+				NEW."UTRNumber",
+				NEW."BranchName",
+				NEW."BranchCode",
 			0, 
 			now();
 				ELSIF (TG_OP = 'INSERT') THEN
 						INSERT INTO dbo."CoreTransactionDetail_Audit"(
 			"CoreTransactionDetailId", 
-			"FromEntityTypeRefEnumValueId", 
-			"FromEntityId", 
-			"ToEntityTypeRefEnumValueId", 
-			"ToEntityId", 
 			"Amount", 
 			"Comission", 
 			"Charges", 
@@ -161,6 +165,11 @@ CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS 
 			"ToEntityUpdatedBalance", 
 			"DepositDate",
 			"CoreDeliveryTransactionDetailId",
+			"FromAccountId",
+				"ToAccountId",
+				"UTRNumber",
+				"BranchName",
+				"BranchCode",
 			"AuditDMLActionId", 
 			"AuditDateTime")
 			SELECT
@@ -193,6 +202,11 @@ CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS 
 			NEW."ToEntityUpdatedBalance", 
 			NEW."DepositDate",
 			NEW."CoreDeliveryTransactionDetailId",
+			NEW."FromAccountId",
+				NEW."ToAccountId",
+				NEW."UTRNumber",
+				NEW."BranchName",
+				NEW."BranchCode",
 			1, 
 			now();
 				END IF;
@@ -203,3 +217,4 @@ $CoreTransactionDetail_Audit$ LANGUAGE plpgsql;
 CREATE TRIGGER CoreTransactionDetail_Audit
 AFTER INSERT OR UPDATE OR DELETE ON dbo."CoreTransactionDetail"
 		FOR EACH ROW EXECUTE FUNCTION coretransactiondetail_insert_update_delete();
+

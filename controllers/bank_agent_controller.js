@@ -59,9 +59,34 @@ const BankAndAgentController = {
           now(),
           ${RefEmployeeId},
           now()
-          );
+          );        
       `;
       await postgre.query(sqltoAdd);
+
+      if (type == "Bank") {
+        const sqlToAddBankComission = `
+          INSERT INTO dbo."RefEntityAccount"(
+            "EntityTypeRefEnumValueId", 
+            "EntityId", 
+            "CurrentBalance", 
+            "AddedByRefEmployeeId", 
+            "AddedOn", 
+            "LastEditedByRefEmployeeId", 
+            "LastEditedOn"
+            )
+            VALUES (
+            (SELECT "RefEnumValueId" FROM dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType' AND "Code" = 'BankComission'),
+            (SELECT "RefBankId" FROM dbo."RefBank" WHERE "Name" = '${name}'),
+            0.0,
+            ${RefEmployeeId},
+            now(),
+            ${RefEmployeeId},
+            now()
+            );    
+          `;
+
+        await postgre.query(sqlToAddBankComission);
+      }
 
       res.json({
         isError: false,
@@ -127,8 +152,7 @@ const BankAndAgentController = {
       const entityId = req.body.entityId;
       const employee = req.session.employee;
 
-      if (type !== "Bank" && type !== "Agent")
-        throw `Invalid Type ${type}`;
+      if (type !== "Bank" && type !== "Agent") throw `Invalid Type ${type}`;
 
       const permissionToLoadBankOrAgent = employee.EmployeeType == "Admin";
       if (!permissionToLoadBankOrAgent) throw `User is Unauthorized!`;
@@ -138,7 +162,7 @@ const BankAndAgentController = {
       const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."Ref${type}" WHERE "Ref${type}Id" <> ${entityId} AND "Name" = '${name}'`;
       const { rows: rows } = await postgre.query(sqlToCheckDuplicateLoginId);
       if (rows != null && rows.length > 0)
-        throw `${type} with Name: ${name} already exists!`
+        throw `${type} with Name: ${name} already exists!`;
 
       const sqlToUpdate = `
       UPDATE dbo."Ref${type}"
@@ -154,7 +178,7 @@ const BankAndAgentController = {
       res.json({
         isError: false,
         msg: `${type} Details Updated Successfully.`,
-      })
+      });
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }

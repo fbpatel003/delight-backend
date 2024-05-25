@@ -6,10 +6,6 @@ CREATE TABLE IF NOT EXISTS dbo."CoreDeliveryTransactionDetail_Audit"
 (
     "AuditId" bigint NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 9223372036854775807 CACHE 1 ),
     "CoreDeliveryTransactionDetailId" bigint NOT NULL,
-    "FromEntityTypeRefEnumValueId" integer NOT NULL,
-    "FromEntityId" integer NOT NULL,
-    "ToEntityTypeRefEnumValueId" integer NOT NULL,
-    "ToEntityId" integer NOT NULL,
     "Amount" double precision NOT NULL,
     "Comission" double precision,
     "Charges" double precision,
@@ -29,7 +25,12 @@ CREATE TABLE IF NOT EXISTS dbo."CoreDeliveryTransactionDetail_Audit"
     "AddedOn" timestamp with time zone NOT NULL,
     "LastEditedByRefEmployeeId" integer NOT NULL,
     "LastEditedOn" timestamp with time zone NOT NULL,
-    "DepositDate" timestamp with time zone,
+    "DepositDate" timestamp with time zone NOT NULL,
+    "FromAccountId" integer NOT NULL,
+    "ToAccountId" integer NOT NULL,
+    "UTRNumber" text COLLATE pg_catalog."default",
+    "BranchName" text COLLATE pg_catalog."default",
+    "BranchCode" text COLLATE pg_catalog."default",
     "AuditDMLActionId" integer NOT NULL,
     "AuditDateTime" timestamp with time zone NOT NULL,
     CONSTRAINT "CoreDeliveryTransactionDetail_audit_pkey" PRIMARY KEY ("AuditId"),
@@ -41,16 +42,16 @@ CREATE TABLE IF NOT EXISTS dbo."CoreDeliveryTransactionDetail_Audit"
         REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION,
-    CONSTRAINT "FK_CoreDeliveryTransactionDetail_FromEntityTypeRefEnumValue" FOREIGN KEY ("FromEntityTypeRefEnumValueId")
-        REFERENCES dbo."RefEnumValue" ("RefEnumValueId") MATCH SIMPLE
+    CONSTRAINT "FK_CoreDeliveryTransactionDetail_FromAccountId" FOREIGN KEY ("FromAccountId")
+        REFERENCES dbo."RefEntityAccount" ("RefEntityAccountId") MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION,
     CONSTRAINT "FK_CoreDeliveryTransactionDetail_LastEditedByRefEmployee" FOREIGN KEY ("LastEditedByRefEmployeeId")
         REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION,
-    CONSTRAINT "FK_CoreDeliveryTransactionDetail_ToEntityTypeRefEnumValue" FOREIGN KEY ("ToEntityTypeRefEnumValueId")
-        REFERENCES dbo."RefEnumValue" ("RefEnumValueId") MATCH SIMPLE
+    CONSTRAINT "FK_CoreDeliveryTransactionDetail_ToAccountId" FOREIGN KEY ("ToAccountId")
+        REFERENCES dbo."RefEntityAccount" ("RefEntityAccountId") MATCH SIMPLE
         ON UPDATE NO ACTION
         ON DELETE NO ACTION
 )

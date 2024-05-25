@@ -27,7 +27,7 @@ const LedgerController = {
       CASE
         WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
         WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        ELSE agent."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
       END AS "EntityName"
       FROM dbo."RefEntityAccount" ac
       INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
@@ -59,6 +59,14 @@ const LedgerController = {
   getEntityLedgerData: async (req, res) => {
     try {
       const { fromDate, toDate, EntityTypeId, EntityId } = req.body;
+
+      if (
+        !EntityId ||
+        !EntityTypeId ||
+        typeof EntityTypeId !== "number" ||
+        typeof EntityId !== "number"
+      )
+        throw new Error("Invalid Parameters");
 
       const sqlToGetTransactions = `
       WITH ids AS (

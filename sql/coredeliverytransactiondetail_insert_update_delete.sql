@@ -3,10 +3,6 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
         IF (TG_OP = 'DELETE') THEN
       INSERT INTO dbo."CoreDeliveryTransactionDetail_Audit"(
   "CoreDeliveryTransactionDetailId", 
-  "FromEntityTypeRefEnumValueId", 
-  "FromEntityId", 
-  "ToEntityTypeRefEnumValueId", 
-  "ToEntityId", 
   "Amount", 
   "Comission", 
   "Charges", 
@@ -27,15 +23,16 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
   "LastEditedByRefEmployeeId", 
   "LastEditedOn", 
   "DepositDate", 
+    "FromAccountId",
+    "ToAccountId",
+    "UTRNumber",
+    "BranchName",
+    "BranchCode",
   "AuditDMLActionId", 
   "AuditDateTime"
   )
       SELECT
       OLD."CoreDeliveryTransactionDetailId", 
-      OLD."FromEntityTypeRefEnumValueId", 
-      OLD."FromEntityId", 
-      OLD."ToEntityTypeRefEnumValueId", 
-      OLD."ToEntityId", 
       OLD."Amount", 
       OLD."Comission", 
       OLD."Charges", 
@@ -56,15 +53,16 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
       OLD."LastEditedByRefEmployeeId", 
       OLD."LastEditedOn", 
       OLD."DepositDate",
+        OLD."FromAccountId",
+    OLD."ToAccountId",
+    OLD."UTRNumber",
+    OLD."BranchName",
+    OLD."BranchCode",
       -1, 
       now();
         ELSIF (TG_OP = 'UPDATE') THEN
           INSERT INTO dbo."CoreDeliveryTransactionDetail_Audit"(
   "CoreDeliveryTransactionDetailId", 
-  "FromEntityTypeRefEnumValueId", 
-  "FromEntityId", 
-  "ToEntityTypeRefEnumValueId", 
-  "ToEntityId", 
   "Amount", 
   "Comission", 
   "Charges", 
@@ -85,15 +83,16 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
   "LastEditedByRefEmployeeId", 
   "LastEditedOn", 
   "DepositDate", 
+            "FromAccountId",
+    "ToAccountId",
+    "UTRNumber",
+    "BranchName",
+    "BranchCode",
   "AuditDMLActionId", 
   "AuditDateTime"
   )
       SELECT
       NEW."CoreDeliveryTransactionDetailId", 
-      NEW."FromEntityTypeRefEnumValueId", 
-      NEW."FromEntityId", 
-      NEW."ToEntityTypeRefEnumValueId", 
-      NEW."ToEntityId", 
       NEW."Amount", 
       NEW."Comission", 
       NEW."Charges", 
@@ -114,15 +113,16 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
       NEW."LastEditedByRefEmployeeId", 
       NEW."LastEditedOn", 
       NEW."DepositDate",
+            NEW."FromAccountId",
+    NEW."ToAccountId",
+    NEW."UTRNumber",
+    NEW."BranchName",
+    NEW."BranchCode",
       0, 
       now();
         ELSIF (TG_OP = 'INSERT') THEN
           INSERT INTO dbo."CoreDeliveryTransactionDetail_Audit"(
   "CoreDeliveryTransactionDetailId", 
-  "FromEntityTypeRefEnumValueId", 
-  "FromEntityId", 
-  "ToEntityTypeRefEnumValueId", 
-  "ToEntityId", 
   "Amount", 
   "Comission", 
   "Charges", 
@@ -148,10 +148,6 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
   )
       SELECT
       NEW."CoreDeliveryTransactionDetailId", 
-      NEW."FromEntityTypeRefEnumValueId", 
-      NEW."FromEntityId", 
-      NEW."ToEntityTypeRefEnumValueId", 
-      NEW."ToEntityId", 
       NEW."Amount", 
       NEW."Comission", 
       NEW."Charges", 
@@ -172,6 +168,11 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
       NEW."LastEditedByRefEmployeeId", 
       NEW."LastEditedOn", 
       NEW."DepositDate",
+            NEW."FromAccountId",
+    NEW."ToAccountId",
+    NEW."UTRNumber",
+    NEW."BranchName",
+    NEW."BranchCode",
       1, 
       now();
         END IF;
