@@ -68,34 +68,6 @@ const LedgerController = {
       )
         throw new Error("Invalid Parameters");
 
-      const sqlToGetTransactions = `
-      WITH ids AS (
-      SELECT
-      "CoreTransactionDetailId"
-      FROM dbo."CoreTransactionDetail"
-      WHERE date("AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' AND (("FromEntityTypeRefEnumValueId" = ${EntityTypeId} AND "FromEntityId" = ${EntityId}) 
-        OR ("ToEntityTypeRefEnumValueId" = ${EntityTypeId} AND "ToEntityId" = ${EntityId}))
-      ) 
-      SELECT
-      tran."CoreTransactionDetailId",
-      accFrom."RefEntityAccountId" AS fromaccountid,
-      accTo."RefEntityAccountId" AS toaccountid,
-      tran."Amount" + coalesce(tran."Comission",0) + coalesce(tran."Charges",0) AS "Amount",
-      tran."Comission",
-      tran."Charges",
-      tran."Notes",
-      tran."AddedOn",
-      tran."DepositDate",
-      CASE WHEN tran."FromEntityTypeRefEnumValueId" = ${EntityTypeId} THEn tran."FromEntityUpdatedBalance" ELSE tran."ToEntityUpdatedBalance" END AS "UpdatedBalance"
-      FROM ids idss
-      INNER JOIN dbo."CoreTransactionDetail" tran ON tran."CoreTransactionDetailId" = idss."CoreTransactionDetailId"
-      INNER JOIN dbo."RefEntityAccount" accFrom ON accFrom."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND accFrom."EntityId" = tran."FromEntityId"
-      INNER JOIN dbo."RefEntityAccount" accTo ON accTo."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND accTo."EntityId" = tran."ToEntityId"
-      ORDER BY tran."CoreTransactionDetailId" DESC;
-                `;
-
-      const Transactions = await postgre.query(sqlToGetTransactions);
-
       const sqlToGetAccountId = `
         SELECT
         "RefEntityAccountId"
@@ -103,6 +75,31 @@ const LedgerController = {
         WHERE "EntityTypeRefEnumValueId" = ${EntityTypeId} AND "EntityId" = ${EntityId};
         `;
       const AccountId = await postgre.query(sqlToGetAccountId);
+
+      const sqlToGetTransactions = `
+      WITH ids AS (
+      SELECT
+      "CoreTransactionDetailId"
+      FROM dbo."CoreTransactionDetail"
+      WHERE date("AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' AND ("FromAccountId" = ${AccountId.rows[0].RefEntityAccountId} OR "ToAccountId" = ${AccountId.rows[0].RefEntityAccountId})
+      ) 
+      SELECT
+      tran."CoreTransactionDetailId",
+      tran."FromAccountId" AS fromaccountid,
+      tran."ToAccountId" AS toaccountid,
+      tran."Amount" + coalesce(tran."Comission",0) + coalesce(tran."Charges",0) AS "Amount",
+      tran."Comission",
+      tran."Charges",
+      tran."Notes",
+      tran."AddedOn",
+      tran."DepositDate",
+      CASE WHEN tran."FromAccountId" = ${AccountId.rows[0].RefEntityAccountId} THEn tran."FromEntityUpdatedBalance" ELSE tran."ToEntityUpdatedBalance" END AS "UpdatedBalance"
+      FROM ids idss
+      INNER JOIN dbo."CoreTransactionDetail" tran ON tran."CoreTransactionDetailId" = idss."CoreTransactionDetailId"
+      ORDER BY tran."CoreTransactionDetailId" DESC;
+                `;
+
+      const Transactions = await postgre.query(sqlToGetTransactions);
 
       res.json({
         isError: false,

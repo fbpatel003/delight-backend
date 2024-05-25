@@ -1,6 +1,6 @@
 const postgre = require("../database");
 
-const EntityNameDetailsData = async () =>{
+const EntityNameDetailsData = async () => {
   const sqlToGetCustomerEntityEnumTypes = `
     SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
     `;
@@ -37,7 +37,7 @@ const EntityNameDetailsData = async () =>{
 
   const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
   return EntityNameDetails;
-}
+};
 
 const TransactionController = {
   getTransactionMasterData: async (req, res) => {
@@ -51,94 +51,7 @@ const TransactionController = {
       )
         throw "Invalid Employee to access";
 
-      const sqlToGetActiveCustomer = `
-        SELECT
-        "RefCRMCustomerId",
-        "Name",
-        "DefaultComissionProfileName"
-        FROM dbo."RefCRMCustomer"
-        WHERE "IsActive" = true;
-      `;
-      const ActiveCustomers = await postgre.query(sqlToGetActiveCustomer);
-
-      const sqlToGetActiveAgent = `
-        SELECT
-        "RefAgentId",
-        "Name"
-        FROM dbo."RefAgent"
-        WHERE "IsActive" = true;
-      `;
-      const ActiveAgents = await postgre.query(sqlToGetActiveAgent);
-
-      const sqlToGetActiveBank = `
-        SELECT
-        "RefBankId",
-        "Name"
-        FROM dbo."RefBank"
-        WHERE "IsActive" = true;
-      `;
-      const ActiveBanks = await postgre.query(sqlToGetActiveBank);
-
-      const sqlToGetDeliveryEmployee = `
-        SELECT
-        em."RefEmployeeId",
-        em."Name"
-        FROM dbo."RefEmployee" em
-        INNER JOIN dbo."RefEmployeeType" ty ON ty."RefEmployeeTypeId" = em."RefEmployeeTypeId"
-        WHERE ty."Code" = 'DeliveryEmployee';
-      `;
-      const ActiveDeliveryEmployee = await postgre.query(
-        sqlToGetDeliveryEmployee,
-      );
-
-      const sqlToGetComissionProfiles = `
-        SELECT
-        "RefComissionProfileId",
-        "Name",
-        "FromValue",
-        "ToValue",
-        "InPercent",
-        "InRupees"
-      FROM dbo."RefComissionProfile"
-      ORDER BY "Name", "RefComissionProfileId" ASC
-      `;
-      const ComissionProfiles = await postgre.query(sqlToGetComissionProfiles);
-
-      const sqlToGetCustomerEntityEnumTypes = `
-        SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
-        `;
-
-      const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
-      const customerTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Customer",
-      ).RefEnumValueId;
-      const agentTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Agent",
-      ).RefEnumValueId;
-      const bankTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Bank",
-      ).RefEnumValueId;
-
-      const sqlToGetEntityNameDetails = `
-      SELECT
-      ac."RefEntityAccountId",
-      ac."EntityTypeRefEnumValueId",
-      enu."Code",
-      ac."EntityId",
-      CASE
-        WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
-      END AS EntityName
-      FROM dbo."RefEntityAccount" ac
-      INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
-      LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId"
-      LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
-      LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
-      WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
-        `;
-
-      const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
+      const EntityNameDetails = await EntityNameDetailsData();
 
       const nameDetails = new Map();
       EntityNameDetails.rows.forEach((t) => {
@@ -148,8 +61,8 @@ const TransactionController = {
       const sqlToGetTransactions = `
         SELECT
         tran."CoreTransactionDetailId",
-    		fromName."RefEntityAccountId" AS FromAccountId,
-    		toName."RefEntityAccountId" AS ToAccountId,
+    		tran."FromAccountId" AS FromAccountId,
+    		tran."ToAccountId" AS ToAccountId,
         tran."Amount",
         tran."Comission",
         tran."Charges",
@@ -161,8 +74,6 @@ const TransactionController = {
         edited."Name" AS EditedEmployeeName,
         tran."LastEditedOn"
         FROM dbo."CoreTransactionDetail" tran
-        INNER JOIN dbo."RefEntityAccount" fromName ON fromName."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND fromName."EntityId" = tran."FromEntityId"
-        INNER JOIN dbo."RefEntityAccount" toName ON toName."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND toName."EntityId" = tran."ToEntityId"
         INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
         INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
         LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
@@ -175,8 +86,8 @@ const TransactionController = {
       const sqlToGetDeliveryTransactions = `
   SELECT
   tran."CoreDeliveryTransactionDetailId",
-  fromName."RefEntityAccountId" AS FromAccountId,
-  toName."RefEntityAccountId" AS ToAccountId,
+  tran."FromAccountId" AS FromAccountId,
+  tran."ToAccountId" AS ToAccountId,
   tran."Amount",
   tran."Comission",
   tran."Charges",
@@ -189,8 +100,6 @@ const TransactionController = {
   edited."Name" AS EditedEmployeeName,
   tran."LastEditedOn"
   FROM dbo."CoreDeliveryTransactionDetail" tran
-        INNER JOIN dbo."RefEntityAccount" fromName ON fromName."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND fromName."EntityId" = tran."FromEntityId"
-        INNER JOIN dbo."RefEntityAccount" toName ON toName."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND toName."EntityId" = tran."ToEntityId"
   INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
   INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
   LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
@@ -206,11 +115,6 @@ const TransactionController = {
         isError: false,
         msg: "Data loaded successfully",
         data: {
-          ActiveCustomers: ActiveCustomers.rows,
-          ActiveAgents: ActiveAgents.rows,
-          ActiveBanks: ActiveBanks.rows,
-          ActiveDeliveryEmployee: ActiveDeliveryEmployee.rows,
-          ComissionProfiles: ComissionProfiles.rows,
           Transactions: Transactions.rows,
           DeliveryTransactions: DeliveryTransactions.rows,
           NameDetailsArray: Array.from(nameDetails.entries()),
@@ -324,6 +228,9 @@ const TransactionController = {
         Rupees20,
         Rupees10,
         DepositDate,
+        BranchCode,
+        BranchName,
+        UTRNumber,
       } = req.body;
 
       if (
@@ -362,49 +269,119 @@ const TransactionController = {
       if (isDelivery && typeof DeliveryEmployeeId != "number")
         throw "Invalid Delivery Employee Id";
 
-      const totalAmount =
-        Amount +
-        (Comission && typeof Comission == "number" ? Comission : 0) +
-        (Charges && typeof Charges == "number" ? Charges : 0);
+      // const totalAmount =
+      //   Amount +
+      //   (Comission && typeof Comission == "number" ? Comission : 0) +
+      //   (Charges && typeof Charges == "number" ? Charges : 0);
 
-      if (
-        Math.abs(
-          Rupees500 * 500 +
-            Rupees200 * 200 +
-            Rupees100 * 100 +
-            Rupees50 * 50 +
-            Rupees20 * 20 +
-            Rupees10 * 10 -
-            totalAmount,
-        ) >= 10
-      )
-        throw "Invalid Notes Count !";
+      // if (
+      //   Math.abs(
+      //     Rupees500 * 500 +
+      //       Rupees200 * 200 +
+      //       Rupees100 * 100 +
+      //       Rupees50 * 50 +
+      //       Rupees20 * 20 +
+      //       Rupees10 * 10 -
+      //       totalAmount,
+      //   ) >= 10
+      // )
+      //   throw "Invalid Notes Count !";
+
+      const sqlToGetCustomerEntityEnumTypes = `
+        SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
+        `;
+
+      const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
+      const customerTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Customer",
+      ).RefEnumValueId;
+      const agentTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Agent",
+      ).RefEnumValueId;
+      const bankTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Bank",
+      ).RefEnumValueId;
 
       if (!isDelivery) {
-        const sql = `
-          SELECT dbo.coretransactiondetail_insert(
-            ${employee.RefEmployeeId}, 
-            '${fromEntityType}', 
-            ${fromEntityId}, 
-            '${toEntityType}', 
-            ${toEntityId}, 
-            ${Amount}, 
-            ${Comission && typeof Comission == "number" && Comission != 0 ? Comission : null}, 
-            ${Charges && typeof Charges == "number" && Charges != 0 ? Charges : null}, 
-            ${totalAmount}, 
-            ${notes && typeof notes == "string" && notes.trim() != "" ? "'" + notes + "'" : null}, 
-            ${Rupees500},
-            ${Rupees200},
-            ${Rupees100},
-            ${Rupees50},
-            ${Rupees20},
-            ${Rupees10},
-            '${dateOfDeposit.toISOString()}'
+        var updatedFromBalance = 0;
+        var updatedToBalance = 0;
+        var fromaccountid = 0;
+        var toaccountid = 0;
+
+        const comission = Comission ? Comission : 0;
+        const charges = Charges ? Charges : 0;
+
+        if (fromEntityType == "Customer" && toEntityType == "Bank") {
+          updatedFromBalance = Amount - comission;
+          updatedToBalance = Amount - charges;
+
+          const getFromAccount = await postgre.query(
+            `SELECT "RefEntityAccountId" FROM dbo."RefEntityAccount" 
+            WHERE "EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "EntityId" = ${fromEntityId}`,
           );
+
+          fromaccountid = getFromAccount.rows[0].RefEntityAccountId;
+
+          const getToAccount = await postgre.query(
+            `SELECT "RefEntityAccountId" FROM dbo."RefEntityAccount" 
+            WHERE "EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND "EntityId" = ${toEntityId}`,
+          );
+
+          toaccountid = getToAccount.rows[0].RefEntityAccountId;
+        }
+        const sqlToAdd = `
+        INSERT INTO dbo."CoreTransactionDetail"(
+          "Amount", 
+          "Comission", 
+          "Charges", 
+          "Notes", 
+          "IsDelivery", 
+          "AddedByRefEmployeeId", 
+          "AddedOn", 
+          "LastEditedByRefEmployeeId", 
+          "LastEditedOn", 
+          "FromEntityUpdatedBalance", 
+          "ToEntityUpdatedBalance",
+          "DepositDate",
+          "FromAccountId",
+          "ToAccountId",
+          "UTRNumber",
+          "BranchName",
+          "BranchCode")
+        VALUES (
+          ${Amount},
+          ${Comission && typeof Comission == "number" && Comission != 0 ? Comission : null},
+          ${Charges && typeof Charges == "number" && Charges != 0 ? Charges : null},
+          ${notes && typeof notes == "string" && notes.trim() != "" ? "'" + notes + "'" : null},
+          false,
+          ${employee.RefEmployeeId},
+          now(),
+          ${employee.RefEmployeeId},
+          now(),
+          ${updatedFromBalance},
+          ${updatedToBalance},
+          date(to_timestamp('${dateOfDeposit.toISOString()}','YYYY-MM-DDTHH24:MI:SS.MSZ')),
+          ${fromaccountid},
+          ${toaccountid},
+          ${UTRNumber && typeof UTRNumber == "string" && UTRNumber.trim() != "" ? "'" + UTRNumber + "'" : null},
+          ${BranchName && typeof BranchName == "string" && BranchName.trim() != "" ? "'" + BranchName + "'" : null},
+          ${BranchCode && typeof BranchCode == "string" && BranchCode.trim() != "" ? "'" + BranchCode + "'" : null}
+          );
+
+          UPDATE dbo."RefEntityAccount"
+          SET "CurrentBalance" = ${updatedFromBalance},
+            "LastEditedByRefEmployeeId" = ${employee.RefEmployeeId},
+            "LastEditedOn" = now()
+          WHERE "RefEntityAccountId" = ${fromaccountid};
+
+          UPDATE dbo."RefEntityAccount"
+          SET "CurrentBalance" = ${updatedToBalance},
+            "LastEditedByRefEmployeeId" = ${employee.RefEmployeeId},
+            "LastEditedOn" = now()
+          WHERE "RefEntityAccountId" = ${toaccountid};
         `;
-        const result = await postgre.query(sql);
-        if (result.rows == null || result.rows.length == 0)
-          throw "Something went wrong! Transaction not added.";
+
+        await postgre.query(sqlToAdd);
       } else {
         const sql = `
           SELECT dbo.coredeliverytransactiondetail_insert(

@@ -103,10 +103,6 @@ CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS 
 			"AuditDateTime")
 			SELECT
 			NEW."CoreTransactionDetailId", 
-			NEW."FromEntityTypeRefEnumValueId", 
-			NEW."FromEntityId", 
-			NEW."ToEntityTypeRefEnumValueId", 
-			NEW."ToEntityId", 
 			NEW."Amount", 
 			NEW."Comission", 
 			NEW."Charges", 
@@ -174,10 +170,6 @@ CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS 
 			"AuditDateTime")
 			SELECT
 			NEW."CoreTransactionDetailId", 
-			NEW."FromEntityTypeRefEnumValueId", 
-			NEW."FromEntityId", 
-			NEW."ToEntityTypeRefEnumValueId", 
-			NEW."ToEntityId", 
 			NEW."Amount", 
 			NEW."Comission", 
 			NEW."Charges", 
