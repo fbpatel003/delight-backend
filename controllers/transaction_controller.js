@@ -260,6 +260,12 @@ const TransactionController = {
       )
         throw "Invalid data";
 
+      if (
+        (Comission && typeof Comission != "number") ||
+        (Charges && typeof Charges != "number")
+      )
+        throw "Invalid data";
+
       if (!DepositDate || isNaN(Date.parse(DepositDate)))
         throw `Invalid Deposit Date!`;
 
@@ -312,23 +318,42 @@ const TransactionController = {
         const charges = Charges ? Charges : 0;
 
         if (fromEntityType == "Customer" && toEntityType == "Bank") {
-          updatedFromBalance = Amount - comission;
-          updatedToBalance = Amount - charges;
-
           const getFromAccount = await postgre.query(
-            `SELECT "RefEntityAccountId" FROM dbo."RefEntityAccount" 
+            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount" 
             WHERE "EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "EntityId" = ${fromEntityId}`,
           );
 
           fromaccountid = getFromAccount.rows[0].RefEntityAccountId;
+          updatedFromBalance =
+            getFromAccount.rows[0].CurrentBalance - Amount + comission;
 
           const getToAccount = await postgre.query(
-            `SELECT "RefEntityAccountId" FROM dbo."RefEntityAccount" 
+            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount" 
             WHERE "EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND "EntityId" = ${toEntityId}`,
           );
 
           toaccountid = getToAccount.rows[0].RefEntityAccountId;
+          updatedToBalance =
+            getToAccount.rows[0].CurrentBalance + Amount - charges;
+        } else if (fromEntityType == "Bank" && toEntityType == "Agent") {
+          const getFromAccount = await postgre.query(
+            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
+            WHERE "EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND "EntityId" = ${fromEntityId}`,
+          );
+          fromaccountid = getFromAccount.rows[0].RefEntityAccountId;
+          updatedFromBalance = getFromAccount.rows[0].CurrentBalance - Amount;
+
+          const getToAccount = await postgre.query(
+            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
+            WHERE "EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND "EntityId" = ${toEntityId}`,
+          );
+
+          toaccountid = getToAccount.rows[0].RefEntityAccountId;
+          updatedToBalance = getToAccount.rows[0].CurrentBalance + Amount;
         }
+
+        if (fromaccountid == 0 || toaccountid == 0) throw "Invalid Account Id";
+
         const sqlToAdd = `
         INSERT INTO dbo."CoreTransactionDetail"(
           "Amount", 

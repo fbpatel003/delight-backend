@@ -87,7 +87,7 @@ const LedgerController = {
       tran."CoreTransactionDetailId",
       tran."FromAccountId" AS fromaccountid,
       tran."ToAccountId" AS toaccountid,
-      tran."Amount" + coalesce(tran."Comission",0) + coalesce(tran."Charges",0) AS "Amount",
+      tran."Amount",
       tran."Comission",
       tran."Charges",
       tran."Notes",

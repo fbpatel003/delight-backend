@@ -31,7 +31,6 @@ VALUES
 ('EntityType', 'Customer','Customer'),
 ('EntityType', 'Bank', 'Bank'),
 ('EntityType', 'Agent', 'Agent'),
-('EntityType', 'BankComission', 'BankComission'),
 ('Managing Employee Permission Type','Can Edit Pending Delivery Transaction','CanEditPendingDeliveryTransaction'),
 ('Managing Employee Permission Type','Can Delete Pending Delivery Transaction','CanDeletePendingDeliveryTransaction'),
 ('Managing Employee Permission Type','Can Edit Transaction','CanEditTransaction'),

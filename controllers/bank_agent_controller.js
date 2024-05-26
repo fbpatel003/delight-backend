@@ -63,31 +63,6 @@ const BankAndAgentController = {
       `;
       await postgre.query(sqltoAdd);
 
-      if (type == "Bank") {
-        const sqlToAddBankComission = `
-          INSERT INTO dbo."RefEntityAccount"(
-            "EntityTypeRefEnumValueId", 
-            "EntityId", 
-            "CurrentBalance", 
-            "AddedByRefEmployeeId", 
-            "AddedOn", 
-            "LastEditedByRefEmployeeId", 
-            "LastEditedOn"
-            )
-            VALUES (
-            (SELECT "RefEnumValueId" FROM dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType' AND "Code" = 'BankComission'),
-            (SELECT "RefBankId" FROM dbo."RefBank" WHERE "Name" = '${name}'),
-            0.0,
-            ${RefEmployeeId},
-            now(),
-            ${RefEmployeeId},
-            now()
-            );    
-          `;
-
-        await postgre.query(sqlToAddBankComission);
-      }
-
       res.json({
         isError: false,
         msg: `${type} : ${name} Added Successfully.`,
