@@ -83,28 +83,58 @@ const TransactionController = {
 
       const Transactions = await postgre.query(sqlToGetTransactions);
 
+      res.json({
+        isError: false,
+        msg: "Data loaded successfully",
+        data: {
+          Transactions: Transactions.rows,
+          NameDetailsArray: Array.from(nameDetails.entries()),
+        },
+      });
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  getPendingDeliveriesMasterData: async (req, res) => {
+    try {
+      const employee = req.session.employee;
+      const fromDate = req.body.fromDate;
+      const toDate = req.body.toDate;
+      if (
+        employee.EmployeeType != "Admin" &&
+        employee.EmployeeType != "ManagingEmployee"
+      )
+        throw "Invalid Employee to access";
+
+      const EntityNameDetails = await EntityNameDetailsData();
+
+      const nameDetails = new Map();
+      EntityNameDetails.rows.forEach((t) => {
+        nameDetails.set(t.RefEntityAccountId, t);
+      });
+
       const sqlToGetDeliveryTransactions = `
-  SELECT
-  tran."CoreDeliveryTransactionDetailId",
-  tran."FromAccountId" AS FromAccountId,
-  tran."ToAccountId" AS ToAccountId,
-  tran."Amount",
-  tran."Comission",
-  tran."Charges",
-  tran."Notes",
-  deli."Name" AS DeliveryEmployeeName,
-  tran."AcceptedByCustomer",
-  tran."AcceptedByEmployee",
-  added."Name" AS AddedEmployeeName,
-  tran."AddedOn",
-  edited."Name" AS EditedEmployeeName,
-  tran."LastEditedOn"
-  FROM dbo."CoreDeliveryTransactionDetail" tran
-  INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
-  INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
-  LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
-  WHERE date(tran."AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}'
-  ORDER BY tran."CoreDeliveryTransactionDetailId" DESC;
+        SELECT
+        tran."CoreDeliveryTransactionDetailId",
+        tran."FromAccountId" AS FromAccountId,
+        tran."ToAccountId" AS ToAccountId,
+        tran."Amount",
+        tran."Comission",
+        tran."Charges",
+        tran."Notes",
+        deli."Name" AS DeliveryEmployeeName,
+        tran."AcceptedByCustomer",
+        tran."AcceptedByEmployee",
+        added."Name" AS AddedEmployeeName,
+        tran."AddedOn",
+        edited."Name" AS EditedEmployeeName,
+        tran."LastEditedOn"
+        FROM dbo."CoreDeliveryTransactionDetail" tran
+        INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
+        INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
+        LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
+        WHERE date(tran."AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}'
+        ORDER BY tran."CoreDeliveryTransactionDetailId" DESC;
       `;
 
       const DeliveryTransactions = await postgre.query(
@@ -115,7 +145,6 @@ const TransactionController = {
         isError: false,
         msg: "Data loaded successfully",
         data: {
-          Transactions: Transactions.rows,
           DeliveryTransactions: DeliveryTransactions.rows,
           NameDetailsArray: Array.from(nameDetails.entries()),
         },
@@ -256,7 +285,8 @@ const TransactionController = {
         typeof Rupees100 != "number" ||
         typeof Rupees50 != "number" ||
         typeof Rupees20 != "number" ||
-        typeof Rupees10 != "number"
+        typeof Rupees10 != "number" ||
+        typeof isDelivery != "boolean"
       )
         throw "Invalid data";
 
@@ -275,23 +305,25 @@ const TransactionController = {
       if (isDelivery && typeof DeliveryEmployeeId != "number")
         throw "Invalid Delivery Employee Id";
 
-      // const totalAmount =
-      //   Amount +
-      //   (Comission && typeof Comission == "number" ? Comission : 0) +
-      //   (Charges && typeof Charges == "number" ? Charges : 0);
+      if (fromEntityType == "Agent" && toEntityType == "Customer") {
+        if (
+          Math.abs(
+            Rupees500 * 500 +
+              Rupees200 * 200 +
+              Rupees100 * 100 +
+              Rupees50 * 50 +
+              Rupees20 * 20 +
+              Rupees10 * 10 -
+              Amount,
+          ) >= 10
+        )
+          throw "Invalid Notes Count !";
 
-      // if (
-      //   Math.abs(
-      //     Rupees500 * 500 +
-      //       Rupees200 * 200 +
-      //       Rupees100 * 100 +
-      //       Rupees50 * 50 +
-      //       Rupees20 * 20 +
-      //       Rupees10 * 10 -
-      //       totalAmount,
-      //   ) >= 10
-      // )
-      //   throw "Invalid Notes Count !";
+        if (isDelivery && typeof DeliveryEmployeeId != "number")
+          throw "Invalid Delivery Employee Id";
+      } else {
+        if (isDelivery) throw "Delivery not Available!";
+      }
 
       const sqlToGetCustomerEntityEnumTypes = `
         SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
@@ -346,6 +378,21 @@ const TransactionController = {
           const getToAccount = await postgre.query(
             `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
             WHERE "EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND "EntityId" = ${toEntityId}`,
+          );
+
+          toaccountid = getToAccount.rows[0].RefEntityAccountId;
+          updatedToBalance = getToAccount.rows[0].CurrentBalance + Amount;
+        } else if (fromEntityType == "Agent" && toEntityType == "Customer") {
+          const getFromAccount = await postgre.query(
+            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
+            WHERE "EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND "EntityId" = ${fromEntityId}`,
+          );
+          fromaccountid = getFromAccount.rows[0].RefEntityAccountId;
+          updatedFromBalance = getFromAccount.rows[0].CurrentBalance - Amount;
+
+          const getToAccount = await postgre.query(
+            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
+            WHERE "EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "EntityId" = ${toEntityId}`,
           );
 
           toaccountid = getToAccount.rows[0].RefEntityAccountId;
@@ -408,30 +455,59 @@ const TransactionController = {
 
         await postgre.query(sqlToAdd);
       } else {
+        var fromaccountid = 0;
+        var toaccountid = 0;
+        const getFromAccount = await postgre.query(
+          `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
+          WHERE "EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND "EntityId" = ${fromEntityId}`,
+        );
+        fromaccountid = getFromAccount.rows[0].RefEntityAccountId;
+
+        const getToAccount = await postgre.query(
+          `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
+          WHERE "EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "EntityId" = ${toEntityId}`,
+        );
+
+        toaccountid = getToAccount.rows[0].RefEntityAccountId;
+
         const sql = `
-          SELECT dbo.coredeliverytransactiondetail_insert(
-            ${employee.RefEmployeeId}, 
-            '${fromEntityType}', 
-            ${fromEntityId}, 
-            '${toEntityType}', 
-            ${toEntityId}, 
-            ${Amount}, 
-            ${Comission && typeof Comission == "number" && Comission != 0 ? Comission : null}, 
-            ${Charges && typeof Charges == "number" && Charges != 0 ? Charges : null}, 
-            ${notes && typeof notes == "string" && notes.trim() != "" ? "'" + notes + "'" : null}, 
+          INSERT INTO dbo."CoreDeliveryTransactionDetail"(
+            "Amount", 
+            "Notes", 
+            "DeliveryRefEmployeeId", 
+            "500RupeesNotes", 
+            "200RupeesNotes", 
+            "100RupeesNotes", 
+            "50RupeesNotes", 
+            "20RupeesNotes", 
+            "10RupeesNotes", 
+            "AddedByRefEmployeeId", 
+            "AddedOn", 
+            "LastEditedByRefEmployeeId", 
+            "LastEditedOn", 
+            "DepositDate", 
+            "FromAccountId", 
+            "ToAccountId")
+            VALUES (
+            ${Amount},
+            ${notes && typeof notes == "string" && notes.trim() != "" ? "'" + notes + "'" : null},
+            ${DeliveryEmployeeId},
             ${Rupees500},
             ${Rupees200},
             ${Rupees100},
             ${Rupees50},
             ${Rupees20},
             ${Rupees10},
-            ${DeliveryEmployeeId},
-            '${dateOfDeposit.toISOString()}'
-          );
+            ${employee.RefEmployeeId},
+            now(),
+            ${employee.RefEmployeeId},
+            now(),
+            date(to_timestamp('${dateOfDeposit.toISOString()}','YYYY-MM-DDTHH24:MI:SS.MSZ')),
+            ${fromaccountid},
+            ${toaccountid}
+            );
         `;
-        const result = await postgre.query(sql);
-        if (result.rows == null || result.rows.length == 0)
-          throw "Something went wrong! Transaction not added.";
+        await postgre.query(sql);
       }
 
       res.json({
@@ -454,52 +530,11 @@ const TransactionController = {
       )
         throw "Invalid Employee to access";
 
-      const sqlToGetCustomerEntityEnumTypes = `
-        SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
-        `;
-
-      const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
-      const customerTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Customer",
-      ).RefEnumValueId;
-      const agentTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Agent",
-      ).RefEnumValueId;
-      const bankTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Bank",
-      ).RefEnumValueId;
-
-      const sqlToGetEntityNameDetails = `
-      SELECT
-      ac."RefEntityAccountId",
-      ac."EntityTypeRefEnumValueId",
-      enu."Code",
-      ac."EntityId",
-      CASE
-        WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
-      END AS EntityName
-      FROM dbo."RefEntityAccount" ac
-      INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
-      LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId"
-      LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
-      LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
-      WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
-        `;
-
-      const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
-
-      const nameDetails = new Map();
-      EntityNameDetails.rows.forEach((t) => {
-        nameDetails.set(t.RefEntityAccountId, t);
-      });
-
       const sqlToGetTransactions = `
         SELECT
         tran."CoreTransactionDetailId",
-        fromName."RefEntityAccountId" AS FromAccountId,
-        toName."RefEntityAccountId" AS ToAccountId,
+        tran."FromAccountId" AS FromAccountId,
+        tran."ToAccountId" AS ToAccountId,
         tran."Amount",
         tran."Comission",
         tran."Charges",
@@ -511,8 +546,6 @@ const TransactionController = {
         edited."Name" AS EditedEmployeeName,
         tran."LastEditedOn"
         FROM dbo."CoreTransactionDetail" tran
-        INNER JOIN dbo."RefEntityAccount" fromName ON fromName."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND fromName."EntityId" = tran."FromEntityId"
-        INNER JOIN dbo."RefEntityAccount" toName ON toName."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND toName."EntityId" = tran."ToEntityId"
         INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
         INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
         LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
@@ -522,30 +555,50 @@ const TransactionController = {
 
       const Transactions = await postgre.query(sqlToGetTransactions);
 
+      res.json({
+        isError: false,
+        msg: "Data loaded successfully",
+        data: {
+          Transactions: Transactions.rows,
+        },
+      });
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  getDeliveryTransactionDataByDate: async (req, res) => {
+    try {
+      const employee = req.session.employee;
+      const fromDate = req.body.fromDate;
+      const toDate = req.body.toDate;
+      if (
+        employee.EmployeeType != "Admin" &&
+        employee.EmployeeType != "ManagingEmployee"
+      )
+        throw "Invalid Employee to access";
+
       const sqlToGetDeliveryTransactions = `
-  SELECT
-  tran."CoreDeliveryTransactionDetailId",
-  fromName."RefEntityAccountId" AS FromAccountId,
-  toName."RefEntityAccountId" AS ToAccountId,
-  tran."Amount",
-  tran."Comission",
-  tran."Charges",
-  tran."Notes",
-  deli."Name" AS DeliveryEmployeeName,
-  tran."AcceptedByCustomer",
-  tran."AcceptedByEmployee",
-  added."Name" AS AddedEmployeeName,
-  tran."AddedOn",
-  edited."Name" AS EditedEmployeeName,
-  tran."LastEditedOn"
-  FROM dbo."CoreDeliveryTransactionDetail" tran
-        INNER JOIN dbo."RefEntityAccount" fromName ON fromName."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND fromName."EntityId" = tran."FromEntityId"
-        INNER JOIN dbo."RefEntityAccount" toName ON toName."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND toName."EntityId" = tran."ToEntityId"
-  INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
-  INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
-  LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
-  WHERE date(tran."AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}'
-  ORDER BY tran."CoreDeliveryTransactionDetailId" DESC;
+      SELECT
+      tran."CoreDeliveryTransactionDetailId",
+      tran."FromAccountId" AS FromAccountId,
+      tran."ToAccountId" AS ToAccountId,
+      tran."Amount",
+      tran."Comission",
+      tran."Charges",
+      tran."Notes",
+      deli."Name" AS DeliveryEmployeeName,
+      tran."AcceptedByCustomer",
+      tran."AcceptedByEmployee",
+      added."Name" AS AddedEmployeeName,
+      tran."AddedOn",
+      edited."Name" AS EditedEmployeeName,
+      tran."LastEditedOn"
+      FROM dbo."CoreDeliveryTransactionDetail" tran
+      INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
+      INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
+      LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
+      WHERE date(tran."AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}'
+      ORDER BY tran."CoreDeliveryTransactionDetailId" DESC;
       `;
 
       const DeliveryTransactions = await postgre.query(
@@ -556,9 +609,7 @@ const TransactionController = {
         isError: false,
         msg: "Data loaded successfully",
         data: {
-          Transactions: Transactions.rows,
           DeliveryTransactions: DeliveryTransactions.rows,
-          NameDetailsArray: Array.from(nameDetails.entries()),
         },
       });
     } catch (error) {
@@ -572,8 +623,8 @@ const TransactionController = {
       const sqlToGetTransactions = `
 SELECT
 tran."CoreTransactionDetailId",
-fromName."RefEntityAccountId" AS FromAccountId,
-toName."RefEntityAccountId" AS ToAccountId,
+tran."FromAccountId" AS FromAccountId,
+tran."ToAccountId" AS ToAccountId,
 tran."Amount",
 tran."Comission",
 tran."Charges",
@@ -596,8 +647,6 @@ tran."FromEntityUpdatedBalance",
 tran."ToEntityUpdatedBalance",
 tran."DepositDate"
 FROM dbo."CoreTransactionDetail" tran
-INNER JOIN dbo."RefEntityAccount" fromName ON fromName."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND fromName."EntityId" = tran."FromEntityId"
-INNER JOIN dbo."RefEntityAccount" toName ON toName."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND toName."EntityId" = tran."ToEntityId"
 INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
 INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
 LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
@@ -625,43 +674,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const employeeId = employee.RefEmployeeId;
 
       if (employee.permissions.some((x) => x.Code == "CanSeePendingDelivery")) {
-        const sqlToGetCustomerEntityEnumTypes = `
-        SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
-        `;
-
-        const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
-        const customerTypeRefEnumValueId = EnumTypes.rows.find(
-          (x) => x.Code == "Customer",
-        ).RefEnumValueId;
-        const agentTypeRefEnumValueId = EnumTypes.rows.find(
-          (x) => x.Code == "Agent",
-        ).RefEnumValueId;
-        const bankTypeRefEnumValueId = EnumTypes.rows.find(
-          (x) => x.Code == "Bank",
-        ).RefEnumValueId;
-
-        const sqlToGetEntityNameDetails = `
-      SELECT
-      ac."RefEntityAccountId",
-      ac."EntityTypeRefEnumValueId",
-      enu."Code",
-      ac."EntityId",
-      CASE
-        WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
-      END AS EntityName
-      FROM dbo."RefEntityAccount" ac
-      INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
-      LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId"
-      LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
-      LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
-      WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
-        `;
-
-        const EntityNameDetails = await postgre.query(
-          sqlToGetEntityNameDetails,
-        );
+        const EntityNameDetails = await EntityNameDetailsData();
 
         const nameDetails = new Map();
         EntityNameDetails.rows.forEach((t) => {
@@ -671,8 +684,8 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         const sqlToGetTransactions = `
   SELECT
   tran."CoreDeliveryTransactionDetailId",
-  fromName."RefEntityAccountId" AS FromAccountId,
-  toName."RefEntityAccountId" AS ToAccountId,
+  tran."FromAccountId" AS FromAccountId,
+  tran."ToAccountId" AS ToAccountId,
   tran."Amount",
   tran."Comission",
   tran."Charges",
@@ -690,8 +703,6 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
   tran."20RupeesNotes" AS rupees20notes,
   tran."10RupeesNotes" AS rupees10notes
   FROM dbo."CoreDeliveryTransactionDetail" tran
-  INNER JOIN dbo."RefEntityAccount" fromName ON fromName."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND fromName."EntityId" = tran."FromEntityId"
-  INNER JOIN dbo."RefEntityAccount" toName ON toName."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND toName."EntityId" = tran."ToEntityId"
   INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
   INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
   WHERE tran."DeliveryRefEmployeeId" = ${employeeId}
@@ -728,44 +739,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       if (
         employee.permissions.some((x) => x.Code == "CanSeeCompletedDelivery")
       ) {
-        const sqlToGetCustomerEntityEnumTypes = `
-        SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
-        `;
-
-        const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
-        const customerTypeRefEnumValueId = EnumTypes.rows.find(
-          (x) => x.Code == "Customer",
-        ).RefEnumValueId;
-        const agentTypeRefEnumValueId = EnumTypes.rows.find(
-          (x) => x.Code == "Agent",
-        ).RefEnumValueId;
-        const bankTypeRefEnumValueId = EnumTypes.rows.find(
-          (x) => x.Code == "Bank",
-        ).RefEnumValueId;
-
-        const sqlToGetEntityNameDetails = `
-      SELECT
-      ac."RefEntityAccountId",
-      ac."EntityTypeRefEnumValueId",
-      enu."Code",
-      ac."EntityId",
-      CASE
-        WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
-        ELSE agent."Name"
-      END AS EntityName
-      FROM dbo."RefEntityAccount" ac
-      INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
-      LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId"
-      LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
-      LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
-      WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
-        `;
-
-        const EntityNameDetails = await postgre.query(
-          sqlToGetEntityNameDetails,
-        );
+        const EntityNameDetails = await EntityNameDetailsData();
 
         const nameDetails = new Map();
         EntityNameDetails.rows.forEach((t) => {
@@ -775,8 +749,8 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         const sqlToGetTransactions = `
   SELECT
   tran."CoreTransactionDetailId",
-  fromName."RefEntityAccountId" AS FromAccountId,
-  toName."RefEntityAccountId" AS ToAccountId,
+  tran."FromAccountId" AS FromAccountId,
+  tran."ToAccountId" AS ToAccountId,
   tran."Amount",
   tran."Comission",
   tran."Charges",
@@ -792,8 +766,6 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
   tran."20RupeesNotes" AS rupees20notes,
   tran."10RupeesNotes" AS rupees10notes
   FROM dbo."CoreTransactionDetail" tran
-  INNER JOIN dbo."RefEntityAccount" fromName ON fromName."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND fromName."EntityId" = tran."FromEntityId"
-  INNER JOIN dbo."RefEntityAccount" toName ON toName."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND toName."EntityId" = tran."ToEntityId"
   INNER JOIN dbo."RefEmployee" added ON added."RefEmployeeId" = tran."AddedByRefEmployeeId"
   INNER JOIN dbo."RefEmployee" edited ON edited."RefEmployeeId" = tran."LastEditedByRefEmployeeId"
   WHERE date(tran."AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' AND tran."DeliveryRefEmployeeId" = ${employeeId}
@@ -882,42 +854,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const fromDate = req.body.fromDate;
       const toDate = req.body.toDate;
 
-      const sqlToGetCustomerEntityEnumTypes = `
-        SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
-        `;
-
-      const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
-      const customerTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Customer",
-      ).RefEnumValueId;
-      const agentTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Agent",
-      ).RefEnumValueId;
-      const bankTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Bank",
-      ).RefEnumValueId;
-
-      const sqlToGetEntityNameDetails = `
-      SELECT
-      ac."RefEntityAccountId",
-      ac."EntityTypeRefEnumValueId",
-      enu."Code",
-      ac."EntityId",
-      CASE
-        WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
-      END AS EntityName
-      FROM dbo."RefEntityAccount" ac
-      INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
-      LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId" AND cust."RefCRMCustomerId" = ${RefCRMCustomerId}
-      LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
-      LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
-      WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
-        `;
-
-      const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
+      const EntityNameDetails = await EntityNameDetailsData();
 
       const nameDetails = new Map();
       EntityNameDetails.rows.forEach((t) => {
@@ -937,18 +874,21 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         (obj) => obj.Code === "Can SeeNotesAddedByDeliveingEmployee",
       );
 
+      const CustomerAccountId = EntityNameDetails.rows.find(
+        (t) => t.Code == "Customer" && t.EntityId == RefCRMCustomerId,
+      ).RefEntityAccountId;
+
       const sqlToGetTransactions = `
   WITH ids AS (
 	SELECT
 	"CoreTransactionDetailId"
 	FROM dbo."CoreTransactionDetail"
-	WHERE date("AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' AND (("FromEntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "FromEntityId" = ${RefCRMCustomerId}) 
-		OR ("ToEntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "ToEntityId" = ${RefCRMCustomerId}))
+	WHERE date("AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' AND (tran."FromAccountId" = ${CustomerAccountId} OR tran."ToAccountId" = ${CustomerAccountId})
   ) 
   SELECT
   tran."CoreTransactionDetailId",
-  accFrom."RefEntityAccountId" AS fromaccountid,
-  accTo."RefEntityAccountId" AS toaccountid,
+  tran."FromAccountId" AS fromaccountid,
+  tran."ToAccountId" AS toaccountid,
   tran."Amount" + coalesce(tran."Comission",0) + coalesce(tran."Charges",0) AS "Amount",
   CASE WHEN ${permissionToSeeComission} THEN tran."Comission" ELSE null END AS "Comission",
   CASE WHEN ${permissionToSeeCharges} THEN tran."Charges" ELSE null END AS "Charges",
@@ -967,17 +907,11 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
   CASE WHEN tran."FromEntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEn tran."FromEntityUpdatedBalance" ELSE tran."ToEntityUpdatedBalance" END AS "UpdatedBalance"
   FROM ids idss
   INNER JOIN dbo."CoreTransactionDetail" tran ON tran."CoreTransactionDetailId" = idss."CoreTransactionDetailId"
-  INNER JOIN dbo."RefEntityAccount" accFrom ON accFrom."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND accFrom."EntityId" = tran."FromEntityId"
-  INNER JOIN dbo."RefEntityAccount" accTo ON accTo."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND accTo."EntityId" = tran."ToEntityId"
   LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
   ORDER BY tran."CoreTransactionDetailId" DESC;
             `;
 
       const Transactions = await postgre.query(sqlToGetTransactions);
-
-      const CustomerAccountId = EntityNameDetails.rows.find(
-        (t) => t.Code == "Customer" && t.EntityId == RefCRMCustomerId,
-      ).RefEntityAccountId;
 
       res.json({
         isError: false,
@@ -997,41 +931,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const customer = req.session.customer;
       const RefCRMCustomerId = customer.RefCRMCustomerId;
 
-      const sqlToGetCustomerEntityEnumTypes = `
-        SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
-        `;
-
-      const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
-      const customerTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Customer",
-      ).RefEnumValueId;
-      const agentTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Agent",
-      ).RefEnumValueId;
-      const bankTypeRefEnumValueId = EnumTypes.rows.find(
-        (x) => x.Code == "Bank",
-      ).RefEnumValueId;
-
-      const sqlToGetEntityNameDetails = `
-      SELECT
-      ac."RefEntityAccountId",
-      ac."EntityTypeRefEnumValueId",
-      enu."Code",
-      ac."EntityId",
-      CASE
-        WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
-        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
-      END AS EntityName
-      FROM dbo."RefEntityAccount" ac
-      INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
-      LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId" AND cust."RefCRMCustomerId" = ${RefCRMCustomerId}
-      LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
-      LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
-      WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
-        `;
-
-      const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
+      const EntityNameDetails = await EntityNameDetailsData();
 
       const nameDetails = new Map();
       EntityNameDetails.rows.forEach((t) => {
@@ -1051,14 +951,16 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         (obj) => obj.Code === "Can SeeNotesAddedByDeliveingEmployee",
       );
 
+      const CustomerAccountId = EntityNameDetails.rows.find(
+        (t) => t.Code == "Customer" && t.EntityId == RefCRMCustomerId,
+      ).RefEntityAccountId;
+
       const sqlToGetTransactions = `
   WITH ids AS (
   SELECT
   "CoreDeliveryTransactionDetailId"
   FROM dbo."CoreDeliveryTransactionDetail"
-  WHERE (("FromEntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "FromEntityId" = ${RefCRMCustomerId}) 
-    OR ("ToEntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "ToEntityId" = ${RefCRMCustomerId}))
-  ) 
+  WHERE ("FromAccountId" = ${CustomerAccountId} OR "ToAccountId" = ${CustomerAccountId}) 
   SELECT
   tran."CoreDeliveryTransactionDetailId",
   accFrom."RefEntityAccountId" AS fromaccountid,
@@ -1081,17 +983,11 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
   tran."AddedOn"
   FROM ids idss
   INNER JOIN dbo."CoreDeliveryTransactionDetail" tran ON tran."CoreDeliveryTransactionDetailId" = idss."CoreDeliveryTransactionDetailId"
-  INNER JOIN dbo."RefEntityAccount" accFrom ON accFrom."EntityTypeRefEnumValueId" = tran."FromEntityTypeRefEnumValueId" AND accFrom."EntityId" = tran."FromEntityId"
-  INNER JOIN dbo."RefEntityAccount" accTo ON accTo."EntityTypeRefEnumValueId" = tran."ToEntityTypeRefEnumValueId" AND accTo."EntityId" = tran."ToEntityId"
   LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
   ORDER BY tran."CoreDeliveryTransactionDetailId" DESC;
             `;
 
       const Transactions = await postgre.query(sqlToGetTransactions);
-
-      const CustomerAccountId = EntityNameDetails.rows.find(
-        (t) => t.Code == "Customer" && t.EntityId == RefCRMCustomerId,
-      ).RefEntityAccountId;
 
       res.json({
         isError: false,

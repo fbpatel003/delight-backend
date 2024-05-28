@@ -25,9 +25,6 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
   "DepositDate", 
     "FromAccountId",
     "ToAccountId",
-    "UTRNumber",
-    "BranchName",
-    "BranchCode",
   "AuditDMLActionId", 
   "AuditDateTime"
   )
@@ -55,9 +52,6 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
       OLD."DepositDate",
         OLD."FromAccountId",
     OLD."ToAccountId",
-    OLD."UTRNumber",
-    OLD."BranchName",
-    OLD."BranchCode",
       -1, 
       now();
         ELSIF (TG_OP = 'UPDATE') THEN
@@ -85,9 +79,6 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
   "DepositDate", 
             "FromAccountId",
     "ToAccountId",
-    "UTRNumber",
-    "BranchName",
-    "BranchCode",
   "AuditDMLActionId", 
   "AuditDateTime"
   )
@@ -115,9 +106,6 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
       NEW."DepositDate",
             NEW."FromAccountId",
     NEW."ToAccountId",
-    NEW."UTRNumber",
-    NEW."BranchName",
-    NEW."BranchCode",
       0, 
       now();
         ELSIF (TG_OP = 'INSERT') THEN
@@ -143,6 +131,8 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
   "LastEditedByRefEmployeeId", 
   "LastEditedOn", 
   "DepositDate", 
+            "FromAccountId",
+    "ToAccountId",
   "AuditDMLActionId", 
   "AuditDateTime"
   )
@@ -170,9 +160,6 @@ CREATE OR REPLACE FUNCTION coredeliverytransactiondetail_insert_update_delete() 
       NEW."DepositDate",
             NEW."FromAccountId",
     NEW."ToAccountId",
-    NEW."UTRNumber",
-    NEW."BranchName",
-    NEW."BranchCode",
       1, 
       now();
         END IF;

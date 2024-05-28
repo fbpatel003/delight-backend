@@ -71,6 +71,11 @@ router.post(
   TransactionController.getTransactionMasterData,
 );
 router.post(
+  "/getPendingDeliveriesMasterData",
+  isAuthenticatedEmployee,
+  TransactionController.getPendingDeliveriesMasterData,
+);
+router.post(
   "/addNewTransaction",
   isAuthenticatedEmployee,
   TransactionController.addNewTransaction,
@@ -79,6 +84,11 @@ router.post(
   "/getTransactionDataByDate",
   isAuthenticatedEmployee,
   TransactionController.getTransactionDataByDate,
+);
+router.post(
+  "/getDeliveryTransactionDataByDate",
+  isAuthenticatedEmployee,
+  TransactionController.getDeliveryTransactionDataByDate,
 );
 router.post(
   "/getTransactionDetailById",
