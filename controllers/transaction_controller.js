@@ -796,10 +796,15 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
     try {
       const notes = req.body.notes;
       const transactionId = req.body.transactionId;
+      const employee = req.session.employee;
 
       const sqlToGetTransaction = `
         SELECT
-        *
+          "CoreDeliveryTransactionDetailId",
+          "FromAccountId",
+          "ToAccountId",
+          "AcceptedByCustomer",
+          "Amount"
         FROM dbo."CoreDeliveryTransactionDetail"
         WHERE "CoreDeliveryTransactionDetailId" = ${transactionId};
         `;
@@ -807,21 +812,93 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const Transactions = await postgre.query(sqlToGetTransaction);
       if (Transactions.rows == 0) throw "Invalid Transaction Id";
 
-      const Transaction = Transactions.rows[0];
-      if (Transaction.AcceptedByCustomer) {
+      const getAccounts = await postgre.query(
+        `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
+        WHERE "RefEntityAccountId" IN (${Transactions.rows[0].FromAccountId},${Transactions.rows[0].ToAccountId})`,
+      );
+
+      var updatedFromBalance =
+        getAccounts.rows.find(
+          (x) => x.RefEntityAccountId == Transactions.rows[0].FromAccountId,
+        ).CurrentBalance - Transactions.rows[0].Amount;
+
+      var updatedToBalance =
+        getAccounts.rows.find(
+          (x) => x.RefEntityAccountId == Transactions.rows[0].ToAccountId,
+        ).CurrentBalance + Transactions.rows[0].Amount;
+
+      if (Transactions.rows[0].AcceptedByCustomer) {
         const sqlToTransferTransaction = `
-          SELECT dbo.coretransactiondetail_transferfrom_coredeliverytransactiondetai(
-            ${Transaction.AddedByRefEmployeeId}, 
-            ${Transaction.CustomerNotes && Transaction.CustomerNotes.trim() != "" ? "'" + Transaction.CustomerNotes + "'" : null}, 
-            ${notes && notes.trim() != "" ? "'" + notes + "'" : null}, 
-            ${Transaction.Amount + (Transaction.Comission ? Transaction.Comission : 0) + (Transaction.Charges ? Transaction.Charges : 0)}, 
-            ${Transaction.FromEntityTypeRefEnumValueId}, 
-            ${Transaction.FromEntityId}, 
-            ${Transaction.ToEntityTypeRefEnumValueId}, 
-            ${Transaction.ToEntityId},
-            ${Transaction.CoreDeliveryTransactionDetailId}
-          );
+        INSERT INTO dbo."CoreTransactionDetail"(
+          "Amount", 
+          "Notes", 
+          "IsDelivery", 
+          "DeliveryRefEmployeeId", 
+          "AcceptedByCustomer", 
+          "CustomerNotes", 
+          "AcceptedByEmployee", 
+          "EmployeeNotes", 
+          "500RupeesNotes", 
+          "200RupeesNotes", 
+          "100RupeesNotes", 
+          "50RupeesNotes", 
+          "20RupeesNotes", 
+          "10RupeesNotes", 
+          "AddedByRefEmployeeId", 
+          "AddedOn", 
+          "LastEditedByRefEmployeeId", 
+          "LastEditedOn", 
+          "FromEntityUpdatedBalance", 
+          "ToEntityUpdatedBalance", 
+          "DepositDate", 
+          "CoreDeliveryTransactionDetailId", 
+          "FromAccountId", 
+          "ToAccountId"
+          )
+          SELECT
+          "Amount",
+          "Notes",
+          true,
+          "DeliveryRefEmployeeId", 
+          true, 
+          "CustomerNotes", 
+          true, 
+          ${notes && typeof notes == "string" && notes.trim() != "" ? "'" + notes + "'" : null}, 
+          "500RupeesNotes", 
+          "200RupeesNotes", 
+          "100RupeesNotes", 
+          "50RupeesNotes", 
+          "20RupeesNotes", 
+          "10RupeesNotes", 
+          "AddedByRefEmployeeId", 
+          now(), 
+          "LastEditedByRefEmployeeId", 
+          now(), 
+          ${updatedFromBalance}, 
+          ${updatedToBalance}, 
+          "DepositDate", 
+          "CoreDeliveryTransactionDetailId", 
+          "FromAccountId", 
+          "ToAccountId"
+          FROM dbo."CoreDeliveryTransactionDetail"
+          WHERE "CoreDeliveryTransactionDetailId" = ${Transactions.rows[0].CoreDeliveryTransactionDetailId};
+
+          UPDATE dbo."RefEntityAccount"
+          SET "CurrentBalance" = ${updatedFromBalance},
+          "LastEditedByRefEmployeeId" = ${employee.RefEmployeeId},
+          "LastEditedOn" = now()
+          WHERE "RefEntityAccountId" = ${Transactions.rows[0].FromAccountId};
+    
+          UPDATE dbo."RefEntityAccount"
+          SET "CurrentBalance" = ${updatedToBalance},
+          "LastEditedByRefEmployeeId" = ${employee.RefEmployeeId},
+          "LastEditedOn" = now()
+          WHERE "RefEntityAccountId" = ${Transactions.rows[0].ToAccountId};
+
+          DELETE FROM dbo."CoreDeliveryTransactionDetail"
+          WHERE "CoreDeliveryTransactionDetailId" = ${Transactions.rows[0].CoreDeliveryTransactionDetailId};
           `;
+
         await postgre.query(sqlToTransferTransaction);
 
         res.json({
@@ -883,13 +960,13 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
 	SELECT
 	"CoreTransactionDetailId"
 	FROM dbo."CoreTransactionDetail"
-	WHERE date("AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' AND (tran."FromAccountId" = ${CustomerAccountId} OR tran."ToAccountId" = ${CustomerAccountId})
-  ) 
+	WHERE date("AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' AND ("FromAccountId" = ${CustomerAccountId} OR "ToAccountId" = ${CustomerAccountId})
+  )
   SELECT
   tran."CoreTransactionDetailId",
   tran."FromAccountId" AS fromaccountid,
   tran."ToAccountId" AS toaccountid,
-  tran."Amount" + coalesce(tran."Comission",0) + coalesce(tran."Charges",0) AS "Amount",
+  tran."Amount" - coalesce(tran."Comission",0) AS "Amount",
   CASE WHEN ${permissionToSeeComission} THEN tran."Comission" ELSE null END AS "Comission",
   CASE WHEN ${permissionToSeeCharges} THEN tran."Charges" ELSE null END AS "Charges",
   CASE WHEN ${permissionToSeeNotes} THEN tran."Notes" ELSE null END AS "Notes",
@@ -904,13 +981,12 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
   tran."20RupeesNotes" AS rupees20notes,
   tran."10RupeesNotes" AS rupees10notes,
   tran."AddedOn",
-  CASE WHEN tran."FromEntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEn tran."FromEntityUpdatedBalance" ELSE tran."ToEntityUpdatedBalance" END AS "UpdatedBalance"
+  CASE WHEN tran."FromAccountId" = ${CustomerAccountId} THEn tran."FromEntityUpdatedBalance" ELSE tran."ToEntityUpdatedBalance" END AS "UpdatedBalance"
   FROM ids idss
   INNER JOIN dbo."CoreTransactionDetail" tran ON tran."CoreTransactionDetailId" = idss."CoreTransactionDetailId"
   LEFT JOIN dbo."RefEmployee" deli ON deli."RefEmployeeId" = tran."DeliveryRefEmployeeId"
   ORDER BY tran."CoreTransactionDetailId" DESC;
             `;
-
       const Transactions = await postgre.query(sqlToGetTransactions);
 
       res.json({
@@ -961,10 +1037,11 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
   "CoreDeliveryTransactionDetailId"
   FROM dbo."CoreDeliveryTransactionDetail"
   WHERE ("FromAccountId" = ${CustomerAccountId} OR "ToAccountId" = ${CustomerAccountId}) 
+  )
   SELECT
   tran."CoreDeliveryTransactionDetailId",
-  accFrom."RefEntityAccountId" AS fromaccountid,
-  accTo."RefEntityAccountId" AS toaccountid,
+  tran."FromAccountId" AS fromaccountid,
+  tran."ToAccountId" AS toaccountid,
   tran."Amount" + coalesce(tran."Comission",0) + coalesce(tran."Charges",0) AS "Amount",
   CASE WHEN ${permissionToSeeComission} THEN tran."Comission" ELSE null END AS "Comission",
   CASE WHEN ${permissionToSeeCharges} THEN tran."Charges" ELSE null END AS "Charges",
@@ -1009,7 +1086,12 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
 
       const sqlToGetTransaction = `
         SELECT
-        *
+          "CoreDeliveryTransactionDetailId",
+          "FromAccountId",
+          "ToAccountId",
+          "AcceptedByEmployee",
+          "Amount",
+          "AddedByRefEmployeeId"
         FROM dbo."CoreDeliveryTransactionDetail"
         WHERE "CoreDeliveryTransactionDetailId" = ${transactionId};
         `;
@@ -1017,21 +1099,93 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const Transactions = await postgre.query(sqlToGetTransaction);
       if (Transactions.rows == 0) throw "Invalid Transaction Id";
 
-      const Transaction = Transactions.rows[0];
-      if (Transaction.AcceptedByEmployee) {
+      const getAccounts = await postgre.query(
+        `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
+        WHERE "RefEntityAccountId" IN (${Transactions.rows[0].FromAccountId},${Transactions.rows[0].ToAccountId})`,
+      );
+
+      var updatedFromBalance =
+        getAccounts.rows.find(
+          (x) => x.RefEntityAccountId == Transactions.rows[0].FromAccountId,
+        ).CurrentBalance - Transactions.rows[0].Amount;
+
+      var updatedToBalance =
+        getAccounts.rows.find(
+          (x) => x.RefEntityAccountId == Transactions.rows[0].ToAccountId,
+        ).CurrentBalance + Transactions.rows[0].Amount;
+
+      if (Transactions.rows[0].AcceptedByEmployee) {
         const sqlToTransferTransaction = `
-          SELECT dbo.coretransactiondetail_transferfrom_coredeliverytransactiondetai(
-            ${Transaction.AddedByRefEmployeeId}, 
-            ${notes && notes.trim() != "" ? "'" + notes + "'" : null}, 
-            ${Transaction.EmployeeNotes && Transaction.EmployeeNotes.trim() != "" ? "'" + Transaction.EmployeeNotes + "'" : null}, 
-            ${Transaction.Amount + (Transaction.Comission ? Transaction.Comission : 0) + (Transaction.Charges ? Transaction.Charges : 0)}, 
-            ${Transaction.FromEntityTypeRefEnumValueId}, 
-            ${Transaction.FromEntityId}, 
-            ${Transaction.ToEntityTypeRefEnumValueId}, 
-            ${Transaction.ToEntityId},
-            ${Transaction.CoreDeliveryTransactionDetailId}
-          );
+        INSERT INTO dbo."CoreTransactionDetail"(
+          "Amount", 
+          "Notes", 
+          "IsDelivery", 
+          "DeliveryRefEmployeeId", 
+          "AcceptedByCustomer", 
+          "CustomerNotes", 
+          "AcceptedByEmployee", 
+          "EmployeeNotes", 
+          "500RupeesNotes", 
+          "200RupeesNotes", 
+          "100RupeesNotes", 
+          "50RupeesNotes", 
+          "20RupeesNotes", 
+          "10RupeesNotes", 
+          "AddedByRefEmployeeId", 
+          "AddedOn", 
+          "LastEditedByRefEmployeeId", 
+          "LastEditedOn", 
+          "FromEntityUpdatedBalance", 
+          "ToEntityUpdatedBalance", 
+          "DepositDate", 
+          "CoreDeliveryTransactionDetailId", 
+          "FromAccountId", 
+          "ToAccountId"
+          )
+          SELECT
+          "Amount",
+          "Notes",
+          true,
+          "DeliveryRefEmployeeId", 
+          true, 
+          ${notes && typeof notes == "string" && notes.trim() != "" ? "'" + notes + "'" : null}, 
+          true, 
+          "EmployeeNotes", 
+          "500RupeesNotes", 
+          "200RupeesNotes", 
+          "100RupeesNotes", 
+          "50RupeesNotes", 
+          "20RupeesNotes", 
+          "10RupeesNotes", 
+          "AddedByRefEmployeeId", 
+          now(), 
+          "LastEditedByRefEmployeeId", 
+          now(), 
+          ${updatedFromBalance}, 
+          ${updatedToBalance}, 
+          "DepositDate", 
+          "CoreDeliveryTransactionDetailId", 
+          "FromAccountId", 
+          "ToAccountId"
+          FROM dbo."CoreDeliveryTransactionDetail"
+          WHERE "CoreDeliveryTransactionDetailId" = ${Transactions.rows[0].CoreDeliveryTransactionDetailId};
+
+          UPDATE dbo."RefEntityAccount"
+          SET "CurrentBalance" = ${updatedFromBalance},
+          "LastEditedByRefEmployeeId" = ${Transactions.rows[0].AddedByRefEmployeeId},
+          "LastEditedOn" = now()
+          WHERE "RefEntityAccountId" = ${Transactions.rows[0].FromAccountId};
+
+          UPDATE dbo."RefEntityAccount"
+          SET "CurrentBalance" = ${updatedToBalance},
+          "LastEditedByRefEmployeeId" = ${Transactions.rows[0].AddedByRefEmployeeId},
+          "LastEditedOn" = now()
+          WHERE "RefEntityAccountId" = ${Transactions.rows[0].ToAccountId};
+
+          DELETE FROM dbo."CoreDeliveryTransactionDetail"
+          WHERE "CoreDeliveryTransactionDetailId" = ${Transactions.rows[0].CoreDeliveryTransactionDetailId};
           `;
+
         await postgre.query(sqlToTransferTransaction);
         res.json({
           isError: false,
@@ -1145,12 +1299,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         throw `Invalid Deposit Date!`;
 
       var dateOfDeposit = new Date(DepositDate);
-      dateOfDeposit.setDate(dateOfDeposit.getDate() + 1);
-
-      const totalAmount =
-        Amount +
-        (Comission && typeof Comission == "number" ? Comission : 0) +
-        (Charges && typeof Charges == "number" ? Charges : 0);
+      //dateOfDeposit.setDate(dateOfDeposit.getDate() + 1);
 
       if (
         Math.abs(
@@ -1160,20 +1309,18 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
             rupees50 * 50 +
             rupees20 * 20 +
             rupees10 * 10 -
-            totalAmount,
+            Amount,
         ) >= 10
       )
         throw "Invalid Notes Count !";
 
       const sqlToCheckForUpdate = `
         SELECT
-        *
+        "CoreDeliveryTransactionDetailId"
         FROM dbo."CoreDeliveryTransactionDetail"
         WHERE "CoreDeliveryTransactionDetailId" = ${CoreDeliveryTransactionDetailId}
           AND "Amount"=${Amount}
-          AND	coalesce("Comission",0)=${Comission && typeof Comission == "number" ? Comission : 0}
-          AND	coalesce("Charges",0)=${Charges && typeof Charges == "number" ? Charges : 0}
-          AND "Notes"=${Notes && typeof Notes == "string" && Notes.trim() != "" ? "'" + Notes + "'" : null}
+          ${Notes && typeof Notes == "string" && Notes.trim() != "" ? 'AND "Notes"=' + "'" + Notes + "'" : 'AND "Notes" IS NULL'}
           AND "500RupeesNotes"=${rupees500}
           AND "200RupeesNotes"=${rupees200}
           AND "100RupeesNotes"=${rupees100}
@@ -1184,24 +1331,23 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         `;
 
       const checkedResult = await postgre.query(sqlToCheckForUpdate);
-      if (checkedResult.rows.count > 0)
-        throw "Nothing to update in Transaction!";
+      if (checkedResult.rowCount > 0) throw "Nothing to update in Transaction!";
 
       const sqlToUpdate = `
           UPDATE dbo."CoreDeliveryTransactionDetail"
-            SET 
-            "Amount"=${Amount}, 
-            "Comission"=${Comission && typeof Comission == "number" ? Comission : null}, 
-            "Charges"=${Charges && typeof Charges == "number" ? Charges : null}, 
-            "Notes"=${Notes && typeof Notes == "string" && Notes.trim() != "" ? "'" + Notes + "'" : null}, 
-            "500RupeesNotes"=${rupees500}, 
-            "200RupeesNotes"=${rupees200}, 
-            "100RupeesNotes"=${rupees100}, 
-            "50RupeesNotes"=${rupees50}, 
-            "20RupeesNotes"=${rupees20}, 
-            "10RupeesNotes"=${rupees10}, 
-            "LastEditedByRefEmployeeId"=${employee.RefEmployeeId}, 
-            "LastEditedOn"=now(), 
+            SET
+            "Amount"=${Amount},
+            "Comission"=${Comission && typeof Comission == "number" ? Comission : null},
+            "Charges"=${Charges && typeof Charges == "number" ? Charges : null},
+            "Notes"=${Notes && typeof Notes == "string" && Notes.trim() != "" ? "'" + Notes + "'" : null},
+            "500RupeesNotes"=${rupees500},
+            "200RupeesNotes"=${rupees200},
+            "100RupeesNotes"=${rupees100},
+            "50RupeesNotes"=${rupees50},
+            "20RupeesNotes"=${rupees20},
+            "10RupeesNotes"=${rupees10},
+            "LastEditedByRefEmployeeId"=${employee.RefEmployeeId},
+            "LastEditedOn"=now(),
             "DepositDate"=date('${dateOfDeposit.toISOString()}')
             WHERE "CoreDeliveryTransactionDetailId" = ${CoreDeliveryTransactionDetailId};
         `;
