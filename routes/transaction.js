@@ -140,5 +140,15 @@ router.post(
   isAuthenticatedEmployee,
   TransactionController.getAddTransactionData,
 );
+router.post(
+  "/deleteDeliveryTransaction",
+  isAuthenticatedEmployee,
+  TransactionController.deleteDeliveryTransaction,
+);
+router.post(
+  "/updateTransaction",
+  isAuthenticatedEmployee,
+  TransactionController.updateTransaction,
+);
 
 module.exports = router;
