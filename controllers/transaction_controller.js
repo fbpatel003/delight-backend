@@ -1485,8 +1485,6 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       coalesce("UTRNumber",'') as "UTRNumber"
       FROM dbo."CoreTransactionDetail" WHERE "CoreTransactionDetailId" = ${CoreTransactionDetailId};`;
 
-      // console.log(sqlToFetchOldTransaction);
-
       const oldTransactionData = await postgre.query(sqlToFetchOldTransaction);
 
       if (oldTransactionData.rows.length == 0) throw "Invalid Transaction Id";
@@ -1516,25 +1514,23 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         oldTransaction.Amount != Amount ||
         oldTransaction.Comission != Comission ||
         oldTransaction.Charges != Charges ||
-        oldTransactionData.rupees500 != rupees500 ||
-        oldTransactionData.rupees200 != rupees200 ||
-        oldTransactionData.rupees100 != rupees100 ||
-        oldTransactionData.rupees50 != rupees50 ||
-        oldTransactionData.rupees20 != rupees20 ||
-        oldTransactionData.rupees10 != rupees10
+        oldTransaction.rupees500 != rupees500 ||
+        oldTransaction.rupees200 != rupees200 ||
+        oldTransaction.rupees100 != rupees100 ||
+        oldTransaction.rupees50 != rupees50 ||
+        oldTransaction.rupees20 != rupees20 ||
+        oldTransaction.rupees10 != rupees10
       ) {
-        console.log("amount change");
         const accountsData = await postgre.query(`
           SELECT
             ac."RefEntityAccountId",
             ac."CurrentBalance",
-            v."Code"
+            v."Code",
+            ac."EntityId"
           FROM dbo."RefEntityAccount" ac
           INNER JOIN dbo."RefEnumValue" v ON v."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
           WHERE "RefEntityAccountId" IN (${oldTransaction.FromAccountId},${oldTransaction.ToAccountId})
         `);
-
-        console.log(accountsData.rows);
 
         const fromAccount = accountsData.rows.find(
           (x) => x.RefEntityAccountId == oldTransaction.FromAccountId,
@@ -1542,8 +1538,6 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         const toAccount = accountsData.rows.find(
           (x) => x.RefEntityAccountId == oldTransaction.ToAccountId,
         );
-
-        console.log(fromAccount);
 
         if (fromAccount.Code == "Bank" && toAccount.Code == "Agent") {
           var oldFromFinalAmmountToDeduct = oldTransaction.Amount;
@@ -1609,7 +1603,6 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
             "LastEditedOn"='${currentDateString}'
             WHERE "RefEntityAccountId" IN (${fromAccount.RefEntityAccountId},${toAccount.RefEntityAccountId});
           `;
-          console.log(sqlToUpdate);
           await postgre.query(sqlToUpdate);
 
           res.json({
@@ -1618,66 +1611,102 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
             data: {},
           });
         } else {
-          //take via customer concent
+          var otherThingsUpdated = false;
+          if (
+            oldTransaction.Notes != Notes ||
+            new Date(oldTransaction.DepositDate).toDateString() !=
+              dateOfDeposit.toDateString() ||
+            oldTransaction.BranchName != BranchName ||
+            oldTransaction.BranchCode != BranchCode ||
+            oldTransaction.UTRNumber != UTRNumber
+          )
+            otherThingsUpdated = true;
+
+          var sqlToUpdateOtherThings = "";
+
+          if (otherThingsUpdated)
+            sqlToUpdateOtherThings = `
+            UPDATE dbo."CoreTransactionDetail"
+            SET "Notes" = ${Notes == "" ? null : "'" + Notes + "'"},
+            "DepositDate" = '${dateOfDeposit.toISOString()}',
+            "BranchName" = ${BranchName == "" ? null : "'" + BranchName + "'"},
+            "BranchCode" = ${BranchCode == "" ? null : "'" + BranchCode + "'"},
+            "UTRNumber" = ${UTRNumber == "" ? null : "'" + UTRNumber + "'"},
+            "LastEditedByRefEmployeeId"=${employee.RefEmployeeId},
+            "LastEditedOn"=now()
+            WHERE "CoreTransactionDetailId" = ${CoreTransactionDetailId};
+          `;
+
+          const sqlToAddChangeLogAndUpdate = `
+          INSERT INTO dbo."CoreCustomerTransactionsChangeLogActionable"(
+            "CoreTransactionDetailId", 
+            "FromAmount", 
+            "ToAmount", 
+            "FromComission", 
+            "ToComission", 
+            "FromCharges", 
+            "ToCharges", 
+            "From500RupeesNotes", 
+            "To500RupeesNotes", 
+            "From200RupeesNotes", 
+            "To200RupeesNotes", 
+            "From100RupeesNotes", 
+            "To100RupeesNotes", 
+            "From50RupeesNotes", 
+            "To50RupeesNotes", 
+            "From20RupeesNotes", 
+            "To20RupeesNotes", 
+            "From10RupeesNotes", 
+            "To10RupeesNotes", 
+            "RefCRMCustomerId", 
+            "StatusUpdatedByCustomer", 
+            "AddedByRefEmployeeId", 
+            "AddedOn", 
+            "LastEditedByRefEmployeeId", 
+            "LastEditedOn")
+            VALUES (
+            ${CoreTransactionDetailId},
+            ${oldTransaction.Amount},
+            ${Amount},
+            ${oldTransaction.Comission > 0 ? oldTransaction.Comission : null},
+            ${Comission > 0 ? Comission : null},
+            ${oldTransaction.Charges > 0 ? oldTransaction.Charges : null},
+            ${Charges > 0 ? Charges : null},
+            ${oldTransaction.rupees500 > 0 ? oldTransaction.rupees500 : null},
+            ${rupees500 > 0 ? rupees500 : null},
+            ${oldTransaction.rupees200 > 0 ? oldTransaction.rupees200 : null},
+            ${rupees200 > 0 ? rupees200 : null},
+            ${oldTransaction.rupees100 > 0 ? oldTransaction.rupees100 : null},
+            ${rupees100 > 0 ? rupees100 : null},
+            ${oldTransaction.rupees50 > 0 ? oldTransaction.rupees50 : null},
+            ${rupees50 > 0 ? rupees50 : null},
+            ${oldTransaction.rupees20 > 0 ? oldTransaction.rupees20 : null},
+            ${rupees20 > 0 ? rupees20 : null},
+            ${oldTransaction.rupees10 > 0 ? oldTransaction.rupees10 : null},
+            ${rupees10 > 0 ? rupees10 : null},
+            ${fromAccount.Code == "Customer" ? fromAccount.EntityId : toAccount.EntityId},
+            0,
+            ${employee.RefEmployeeId},
+            now(),
+            ${employee.RefEmployeeId},
+            now()
+            );
+
+            ${otherThingsUpdated ? sqlToUpdateOtherThings : ""}
+          `;
+          await postgre.query(sqlToAddChangeLogAndUpdate);
+          res.json({
+            isError: false,
+            sendWarning: true,
+            msg: `Action Created To Update Transaction Amount.${otherThingsUpdated ? " Other Data Updated." : ""}`,
+            data: {},
+          });
         }
-
-        // var oldFromFinalAmmountToDeduct = 0;
-        // var oldToFinalAmmountToAdd = 0;
-        // var newFromFinalAmmountToDeduct = 0;
-        // var newToFinalAmountToAdd = 0;
-        // if (fromAccount.Code == "Customer" && toAccount.Code == "Bank") {
-        //   var oldFromFinalAmmountToDeduct =
-        //     oldTransaction.Amount - oldTransaction.Comission;
-        //   var oldToFinalAmmountToAdd =
-        //     oldTransaction.Amount - oldTransaction.Charges;
-
-        //   var newFromFinalAmmountToDeduct = Amount - Comission;
-        //   var newToFinalAmountToAdd = Amount - Charges;
-
-        // } else {
-        //   var oldFromFinalAmmountToDeduct = oldTransaction.Amount;
-        //   var oldToFinalAmmountToAdd = oldTransaction.Amount;
-
-        //   var newFromFinalAmmountToDeduct = Amount;
-        //   var newToFinalAmountToAdd = Amount;
-        // }
-
-        // var pieceToAddInFromBalance =
-        //   newFromFinalAmmountToDeduct > oldFromFinalAmmountToDeduct
-        //     ? newFromFinalAmmountToDeduct - oldFromFinalAmmountToDeduct
-        //     : oldFromFinalAmmountToDeduct - newFromFinalAmmountToDeduct;
-
-        // var pieceToAddInToBalance =
-        //   newToFinalAmountToAdd > oldToFinalAmmountToAdd
-        //     ? oldToFinalAmmountToAdd - newToFinalAmountToAdd
-        //     : newToFinalAmountToAdd - oldToFinalAmmountToAdd;
-
-        // const sqlToUpdate = `
-        //   UPDATE dbo."CoreTransactionDetail"
-        //     SET
-        //     "Amount"=${Amount},
-        //     "Comission"=${Comission},
-        //     "Charges"=${Charges},
-        //     "Notes"=${Notes},
-        //     "500RupeesNotes"=${rupees500},
-        //     "200RupeesNotes"=${rupees200},
-        //     "100RupeesNotes"=${rupees100},
-        //     "50RupeesNotes"=${rupees50},
-        //     "20RupeesNotes"=${rupees20},
-        //     "10RupeesNotes"=${rupees10},
-        //     "LastEditedByRefEmployeeId"=${employee.RefEmployeeId},
-        //     "LastEditedOn"=now(),
-        //     "DepositDate"=date('${dateOfDeposit.toISOString()}'),
-        //     ""
-        //     WHERE "CoreTransactionDetailId" = ${CoreTransactionDetailId};
-        // `;
-        // await postgre.query(sqlToUpdate);
       } else {
-        console.log("not amount");
         const sqlToUpdateTransaction = `
           UPDATE dbo."CoreTransactionDetail"
           SET "Notes" = ${Notes == "" ? null : "'" + Notes + "'"},
-          "DepositDate" = date(to_timestamp('${dateOfDeposit.toISOString()}','YYYY-MM-DDTHH24:MI:SS.MSZ')),
+          "DepositDate" = '${dateOfDeposit.toISOString()}',
           "BranchName" = ${BranchName == "" ? null : "'" + BranchName + "'"},
           "BranchCode" = ${BranchCode == "" ? null : "'" + BranchCode + "'"},
           "UTRNumber" = ${UTRNumber == "" ? null : "'" + UTRNumber + "'"},
@@ -1685,8 +1714,6 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
           "LastEditedOn"=now()
           WHERE "CoreTransactionDetailId" = ${CoreTransactionDetailId};
           `;
-
-        console.log(sqlToUpdateTransaction);
 
         await postgre.query(sqlToUpdateTransaction);
 
