@@ -50,5 +50,15 @@ router.post(
   isAuthenticatedEmployee,
   CustomerTransactionChangeLogController.getChangeLogData,
 );
+router.post(
+  "/getCustomerTransactionsChangeLogData",
+  isAuthenticatedCustomer,
+  CustomerTransactionChangeLogController.getCustomerTransactionsChangeLogData,
+);
+router.post(
+  "/updateChangeLogStatus",
+  isAuthenticatedCustomer,
+  CustomerTransactionChangeLogController.updateChangeLogStatus,
+);
 
 module.exports = router;

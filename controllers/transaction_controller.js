@@ -39,6 +39,45 @@ const EntityNameDetailsData = async () => {
   return EntityNameDetails;
 };
 
+const CustomerEntityNameDetailsData = async (RefCRMCustomerId) => {
+  const sqlToGetCustomerEntityEnumTypes = `
+    SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
+    `;
+
+  const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
+  const customerTypeRefEnumValueId = EnumTypes.rows.find(
+    (x) => x.Code == "Customer",
+  ).RefEnumValueId;
+  const agentTypeRefEnumValueId = EnumTypes.rows.find(
+    (x) => x.Code == "Agent",
+  ).RefEnumValueId;
+  const bankTypeRefEnumValueId = EnumTypes.rows.find(
+    (x) => x.Code == "Bank",
+  ).RefEnumValueId;
+
+  const sqlToGetEntityNameDetails = `
+  SELECT
+  ac."RefEntityAccountId",
+  ac."EntityTypeRefEnumValueId",
+  enu."Code",
+  ac."EntityId",
+  CASE
+    WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
+    WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
+    WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
+  END AS EntityName
+  FROM dbo."RefEntityAccount" ac
+  INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
+  LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId" AND cust."RefCRMCustomerId" = ${RefCRMCustomerId}
+  LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
+  LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
+  WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
+    `;
+
+  const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
+  return EntityNameDetails;
+};
+
 const TransactionController = {
   getTransactionMasterData: async (req, res) => {
     try {
@@ -398,8 +437,9 @@ const TransactionController = {
           toaccountid = getToAccount.rows[0].RefEntityAccountId;
           updatedToBalance = getToAccount.rows[0].CurrentBalance + Amount;
         }
-
         if (fromaccountid == 0 || toaccountid == 0) throw "Invalid Account Id";
+        const isAgentToCustomer =
+          fromEntityType == "Agent" && toEntityType == "Customer";
 
         const sqlToAdd = `
         INSERT INTO dbo."CoreTransactionDetail"(
@@ -408,6 +448,12 @@ const TransactionController = {
           "Charges", 
           "Notes", 
           "IsDelivery", 
+          "500RupeesNotes", 
+          "200RupeesNotes", 
+          "100RupeesNotes", 
+          "50RupeesNotes", 
+          "20RupeesNotes", 
+          "10RupeesNotes", 
           "AddedByRefEmployeeId", 
           "AddedOn", 
           "LastEditedByRefEmployeeId", 
@@ -426,6 +472,12 @@ const TransactionController = {
           ${Charges && typeof Charges == "number" && Charges != 0 ? Charges : null},
           ${notes && typeof notes == "string" && notes.trim() != "" ? "'" + notes + "'" : null},
           false,
+          ${isAgentToCustomer ? Rupees500 : null},
+          ${isAgentToCustomer ? Rupees200 : null},
+          ${isAgentToCustomer ? Rupees100 : null},
+          ${isAgentToCustomer ? Rupees50 : null},
+          ${isAgentToCustomer ? Rupees20 : null},
+          ${isAgentToCustomer ? Rupees10 : null},
           ${employee.RefEmployeeId},
           now(),
           ${employee.RefEmployeeId},
@@ -934,7 +986,8 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const fromDate = req.body.fromDate;
       const toDate = req.body.toDate;
 
-      const EntityNameDetails = await EntityNameDetailsData();
+      const EntityNameDetails =
+        await CustomerEntityNameDetailsData(RefCRMCustomerId);
 
       const nameDetails = new Map();
       EntityNameDetails.rows.forEach((t) => {
@@ -1010,7 +1063,8 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const customer = req.session.customer;
       const RefCRMCustomerId = customer.RefCRMCustomerId;
 
-      const EntityNameDetails = await EntityNameDetailsData();
+      const EntityNameDetails =
+        await CustomerEntityNameDetailsData(RefCRMCustomerId);
 
       const nameDetails = new Map();
       EntityNameDetails.rows.forEach((t) => {
@@ -1538,6 +1592,24 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         const toAccount = accountsData.rows.find(
           (x) => x.RefEntityAccountId == oldTransaction.ToAccountId,
         );
+
+        const isAgentToCustomer =
+          fromAccount.Code == "Agent" && toAccount.Code == "Customer";
+
+        if (isAgentToCustomer) {
+          if (
+            Math.abs(
+              rupees500 * 500 +
+                rupees200 * 200 +
+                rupees100 * 100 +
+                rupees50 * 50 +
+                rupees20 * 20 +
+                rupees10 * 10 -
+                Amount,
+            ) >= 10
+          )
+            throw "Invalid Notes Count !";
+        }
 
         if (fromAccount.Code == "Bank" && toAccount.Code == "Agent") {
           var oldFromFinalAmmountToDeduct = oldTransaction.Amount;
