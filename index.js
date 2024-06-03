@@ -17,7 +17,7 @@ app.use(
 );
 
 app.get("/", (req, res) => {
-    res.send("<h1>Dynamic Enterprise API V1.0.0</h1><h4>Created By FB</h4>");
+    res.send("<h1>Dynamic Enterprise API v1.0.0</h6><h4>Created By FB</h6>");
 });
 
 const loginRouter = require("./routes/login.js");
@@ -46,5 +46,8 @@ app.use("/api/ledger", ledgerRouter);
 
 const customerTransactionsChangeLogRouter = require("./routes/customertransactionchangelog.js");
 app.use("/api/changelog", customerTransactionsChangeLogRouter);
+
+const generatePdfRouter = require("./routes/generatePdf.js");
+app.use("/api/generatePdf", generatePdfRouter);
 
 app.listen(15047, () => console.log("Server is running on port 15047"));

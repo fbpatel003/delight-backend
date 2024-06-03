@@ -1,5 +1,5 @@
 const postgre = require("../database");
-const ExcelJS = require("exceljs");
+const PDFDocument = require("pdfkit");
 
 const formattedDate = (d) => {
   return [d.getDate(), d.getMonth() + 1, d.getFullYear()]
@@ -7,10 +7,10 @@ const formattedDate = (d) => {
     .join("/");
 };
 
-const GenerateExcelController = {
-  getCustomerTransactionsExcel: async (req, res) => {
+const GeneratePdfController = {
+  getCustomerTransactionsPdf: async (req, res) => {
     try {
-      const { fromDate, toDate } = req.query;
+      const { fromDate, toDate } = req.body;
       const customer = req.session.customer;
       const RefCRMCustomerId = customer.RefCRMCustomerId;
 
@@ -112,108 +112,76 @@ const GenerateExcelController = {
 
       Transactions.rows.forEach((t) => {
         FinalTransactions.push({
-          CoreTransactionDetailId: t.CoreTransactionDetailId,
+          t_id: t.CoreTransactionDetailId,
           Action: t.fromaccountid == CustomerAccountId ? "Debit" : "Credit",
           PartyName:
             t.fromaccountid == CustomerAccountId
               ? nameDetails.get(t.toaccountid).entityname
               : nameDetails.get(t.fromaccountid).entityname,
           Amount: t.Amount,
-          Comission: t.Comission,
-          Charges: t.Charges,
-          Notes: t.Notes,
-          Delivery: t.IsDelivery ? "Yes" : "No",
-          DeliveryEmployeeName: t.deliveryemployeename,
-          CustomerNotes: t.CustomerNotes,
-          EmployeeNotes: t.EmployeeNotes,
-          Rupees500Notes: t.rupees500notes > 0 ? t.rupees500notes : "",
-          Rupees200Notes: t.rupees200notes > 0 ? t.rupees200notes : "",
-          Rupees100Notes: t.rupees100notes > 0 ? t.rupees100notes : "",
-          Rupees50Notes: t.rupees50notes > 0 ? t.rupees50notes : "",
-          Rupees20Notes: t.rupees20notes > 0 ? t.rupees20notes : "",
-          Rupees10Notes: t.rupees10notes > 0 ? t.rupees10notes : "",
           UpdatedBalance: t.UpdatedBalance,
           AddedOn: formattedDate(new Date(t.AddedOn)),
           DepositDate: formattedDate(new Date(t.DepositDate)),
         });
       });
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Transaction Data");
 
-      // Add columns
-      columns = [
-        { header: "t_Id", key: "CoreTransactionDetailId", width: 20 },
-        { header: "Action", key: "Action", width: 20 },
-        { header: "Party Name", key: "PartyName", width: 20 },
-        { header: "Deposit Date", key: "DepositDate", width: 20 },
-        { header: "Amount", key: "Amount", width: 20 },
-        { header: "Comission", key: "Comission", width: 20 },
-        { header: "Charges", key: "Charges", width: 20 },
-        { header: "Updated Balance", key: "UpdatedBalance", width: 20 },
-        { header: "Notes", key: "Notes", width: 20 },
-        { header: "Delivery", key: "Delivery", width: 20 },
-        {
-          header: "Delivery Employee Name",
-          key: "DeliveryEmployeeName",
-          width: 20,
-        },
-        { header: "Customer Notes", key: "CustomerNotes", width: 20 },
-        { header: "Employee Notes", key: "EmployeeNotes", width: 20 },
-        { header: "500 Rupees Notes", key: "Rupees500Notes", width: 20 },
-        { header: "200 Rupees Notes", key: "Rupees200Notes", width: 20 },
-        { header: "100 Rupees Notes", key: "Rupees100Notes", width: 20 },
-        { header: "50 Rupees Notes", key: "Rupees50Notes", width: 20 },
-        { header: "20 Rupees Notes", key: "Rupees20Notes", width: 20 },
-        { header: "10 Rupees Notes", key: "Rupees10Notes", width: 20 },
-        { header: "Added On", key: "AddedOn", width: 20 },
-      ];
+      const doc = new PDFDocument({ layout: "landscape" });
+      let buffers = [];
 
-      columns = columns.filter(
-        (column) =>
-          (permissionToSeeNotes || column.key !== "Notes") &&
-          (permissionToSeeEmployeeNotes || column.key !== "EmployeeNotes") &&
-          (permissionToSeeComission || column.key !== "Comission") &&
-          (permissionToSeeCharges || column.key !== "Charges"),
-      );
-
-      worksheet.columns = columns;
-
-      // Style the headers
-      worksheet.columns.forEach((column) => {
-        column.headerCell = worksheet.getRow(1).getCell(column.key);
-        column.headerCell.font = { bold: true, color: { argb: "FFFFFFFF" } }; // White text
-        column.headerCell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: "FF808080" }, // Grey background
-        };
-        column.headerCell.alignment = {
-          vertical: "middle",
-          horizontal: "center",
-        };
+      doc.on("data", buffers.push.bind(buffers));
+      doc.on("end", () => {
+        let pdfData = Buffer.concat(buffers);
+        res
+          .writeHead(200, {
+            "Content-Length": Buffer.byteLength(pdfData),
+            "Content-Type": "application/pdf",
+            "Content-Disposition": "attachment;filename=generated.pdf",
+          })
+          .end(pdfData);
       });
 
-      // Add rows
-      worksheet.addRows(FinalTransactions);
+      doc.fontSize(12).text("Generated PDF Table", { align: "center" });
+      doc.moveDown();
 
-      // Write to buffer
-      const buffer = await workbook.xlsx.writeBuffer();
+      const tableTop = 100;
+      const columnWidth = 100;
+      const rowHeight = 25;
+      const cellPadding = 5;
+      const tableX = 50;
+      let tableY = tableTop;
 
-      // Set headers and send the buffer
-      res.setHeader(
-        "Content-Disposition",
-        'attachment; filename="TransactionData.xlsx"',
-      );
-      res.setHeader(
-        "Content-Type",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      );
-      res.send(buffer);
-      return;
+      const table = {
+        headers: Object.keys(FinalTransactions[0]),
+        rows: FinalTransactions.map((item) => Object.values(item)),
+      };
+
+      doc.fontSize(10);
+
+      // Draw table headers
+      table.headers = Object.keys(FinalTransactions[0]);
+      table.headers.forEach((header, i) => {
+        const x = tableX + i * columnWidth;
+        doc.rect(x, tableY, columnWidth, rowHeight).stroke();
+        doc.text(header, x + cellPadding, tableY + cellPadding);
+      });
+
+      // Draw table rows
+      table.rows = FinalTransactions.map((item) => Object.values(item));
+      table.rows.forEach((row, rowIndex) => {
+        tableY = tableTop + rowHeight * (rowIndex + 1);
+        row.forEach((cell, i) => {
+          const x = tableX + i * columnWidth;
+          doc.rect(x, tableY, columnWidth, rowHeight).stroke();
+          doc.text(cell, x + cellPadding, tableY + cellPadding);
+        });
+      });
+
+      doc.end();
     } catch (error) {
+      console.log(error);
       res.json({ isError: true, msg: error.toString() });
     }
   },
 };
 
-module.exports = GenerateExcelController;
+module.exports = GeneratePdfController;
