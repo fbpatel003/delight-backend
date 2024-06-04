@@ -143,13 +143,13 @@ const GenerateExcelController = {
       // Add columns
       columns = [
         { header: "t_Id", key: "CoreTransactionDetailId", width: 20 },
-        { header: "Action", key: "Action", width: 20 },
+        { header: "Type", key: "Action", width: 20 },
         { header: "Party Name", key: "PartyName", width: 20 },
         { header: "Deposit Date", key: "DepositDate", width: 20 },
         { header: "Amount", key: "Amount", width: 20 },
         { header: "Comission", key: "Comission", width: 20 },
         { header: "Charges", key: "Charges", width: 20 },
-        { header: "Updated Balance", key: "UpdatedBalance", width: 20 },
+        { header: "Closing Balance", key: "UpdatedBalance", width: 20 },
         { header: "Notes", key: "Notes", width: 20 },
         { header: "Delivery", key: "Delivery", width: 20 },
         {

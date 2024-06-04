@@ -59,19 +59,6 @@ const GeneratePdfController = {
         (t) => t.Code == "Customer" && t.EntityId == RefCRMCustomerId,
       ).RefEntityAccountId;
 
-      const permissionToSeeNotes = customer.permissions.some(
-        (obj) => obj.Code === "CanSeeNotesAddedByTransactionCreator",
-      );
-      const permissionToSeeComission = customer.permissions.some(
-        (obj) => obj.Code === "CanSeeAddedComissionInATransaction",
-      );
-      const permissionToSeeCharges = customer.permissions.some(
-        (obj) => obj.Code === "CanSeeAddedChargesInATransaction",
-      );
-      const permissionToSeeEmployeeNotes = customer.permissions.some(
-        (obj) => obj.Code === "Can SeeNotesAddedByDeliveingEmployee",
-      );
-
       const sqlToGetTransactions = `
       WITH ids AS (
       SELECT
@@ -83,21 +70,7 @@ const GeneratePdfController = {
       tran."CoreTransactionDetailId",
       tran."FromAccountId" AS fromaccountid,
       tran."ToAccountId" AS toaccountid,
-      tran."Amount" + coalesce(tran."Comission",0) + coalesce(tran."Charges",0) AS "Amount",
-      CASE WHEN ${permissionToSeeComission} THEN tran."Comission" ELSE null END AS "Comission",
-      CASE WHEN ${permissionToSeeCharges} THEN tran."Charges" ELSE null END AS "Charges",
-      CASE WHEN ${permissionToSeeNotes} THEN tran."Notes" ELSE null END AS "Notes",
-      tran."IsDelivery",
-      deli."Name" AS deliveryemployeename,
-      tran."CustomerNotes",
-      CASE WHEN ${permissionToSeeEmployeeNotes} THEN tran."EmployeeNotes" ELSE null END AS "EmployeeNotes",
-      tran."500RupeesNotes" AS rupees500notes,
-      tran."200RupeesNotes" AS rupees200notes,
-      tran."100RupeesNotes" AS rupees100notes,
-      tran."50RupeesNotes" AS rupees50notes,
-      tran."20RupeesNotes" AS rupees20notes,
-      tran."10RupeesNotes" AS rupees10notes,
-      tran."AddedOn",
+      tran."Amount",
       CASE WHEN tran."FromAccountId" = ${CustomerAccountId} THEN tran."FromEntityUpdatedBalance" ELSE tran."ToEntityUpdatedBalance" END AS "UpdatedBalance",
       tran."DepositDate"
       FROM ids idss
@@ -112,16 +85,16 @@ const GeneratePdfController = {
 
       Transactions.rows.forEach((t) => {
         FinalTransactions.push({
-          t_id: t.CoreTransactionDetailId,
-          Action: t.fromaccountid == CustomerAccountId ? "Debit" : "Credit",
-          PartyName:
+          t_Id: t.CoreTransactionDetailId,
+          "Deposit Date": formattedDate(new Date(t.DepositDate)),
+          Type: t.fromaccountid == CustomerAccountId ? "Debit" : "Credit",
+          "Party Name":
             t.fromaccountid == CustomerAccountId
               ? nameDetails.get(t.toaccountid).entityname
               : nameDetails.get(t.fromaccountid).entityname,
           Amount: t.Amount,
-          UpdatedBalance: t.UpdatedBalance,
-          AddedOn: formattedDate(new Date(t.AddedOn)),
-          DepositDate: formattedDate(new Date(t.DepositDate)),
+          "Closing Balance": t.UpdatedBalance,
+          // AddedOn: formattedDate(new Date(t.AddedOn)),
         });
       });
 
@@ -135,46 +108,64 @@ const GeneratePdfController = {
           .writeHead(200, {
             "Content-Length": Buffer.byteLength(pdfData),
             "Content-Type": "application/pdf",
-            "Content-Disposition": "attachment;filename=generated.pdf",
+            "Content-Disposition": "attachment;filename=TransactionData.pdf",
           })
           .end(pdfData);
       });
 
-      doc.fontSize(12).text("Generated PDF Table", { align: "center" });
+      doc
+        .fontSize(12)
+        .text(
+          `${nameDetails.get(CustomerAccountId).entityname}'s Transaction Data from ${formattedDate(new Date(fromDate))} to ${formattedDate(new Date(toDate))}`,
+          { align: "center" },
+        );
       doc.moveDown();
 
-      const tableTop = 100;
-      const columnWidth = 100;
-      const rowHeight = 25;
-      const cellPadding = 5;
-      const tableX = 50;
-      let tableY = tableTop;
+      if (FinalTransactions.length == 0) {
+        doc
+          .fontSize(12)
+          .text(`No Transactions available !`, { align: "center" });
+        doc.moveDown();
+      } else {
+        const tableTop = 100;
+        const columnWidth = 116;
+        const rowHeight = 30;
+        const cellPadding = 5;
+        const tableX = 50;
+        let tableY = tableTop;
 
-      const table = {
-        headers: Object.keys(FinalTransactions[0]),
-        rows: FinalTransactions.map((item) => Object.values(item)),
-      };
+        const table = {
+          headers: Object.keys(FinalTransactions[0]),
+          rows: FinalTransactions.map((item) => Object.values(item)),
+        };
 
-      doc.fontSize(10);
+        doc.fontSize(11);
+        doc.fill("grey");
+        doc.font("Courier-Bold");
 
-      // Draw table headers
-      table.headers = Object.keys(FinalTransactions[0]);
-      table.headers.forEach((header, i) => {
-        const x = tableX + i * columnWidth;
-        doc.rect(x, tableY, columnWidth, rowHeight).stroke();
-        doc.text(header, x + cellPadding, tableY + cellPadding);
-      });
-
-      // Draw table rows
-      table.rows = FinalTransactions.map((item) => Object.values(item));
-      table.rows.forEach((row, rowIndex) => {
-        tableY = tableTop + rowHeight * (rowIndex + 1);
-        row.forEach((cell, i) => {
+        // Draw table headers
+        table.headers = Object.keys(FinalTransactions[0]);
+        table.headers.forEach((header, i) => {
           const x = tableX + i * columnWidth;
           doc.rect(x, tableY, columnWidth, rowHeight).stroke();
-          doc.text(cell, x + cellPadding, tableY + cellPadding);
+          doc.text(header, x + cellPadding, tableY + cellPadding);
         });
-      });
+
+        doc.fontSize(10);
+        doc.fill("black");
+        doc.font("Courier");
+
+        // Draw table rows
+        table.rows = FinalTransactions.map((item) => Object.values(item));
+        table.rows.forEach((row, rowIndex) => {
+          tableY = tableTop + rowHeight * (rowIndex + 1);
+          row.forEach((cell, i) => {
+            const x = tableX + i * columnWidth;
+            doc.rect(x, tableY, columnWidth, rowHeight).stroke();
+            doc.text(cell, x + cellPadding, tableY + cellPadding);
+          });
+        });
+      }
 
       doc.end();
     } catch (error) {
