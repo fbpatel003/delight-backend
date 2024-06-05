@@ -193,12 +193,21 @@ const CustomerTransactionChangeLog = {
 
       const ChangeLogData = await postgre.query(sqlToGetData);
 
+      const permissionToSeeComission = customer.permissions.some(
+        (obj) => obj.Code === "CanSeeAddedComissionInATransaction",
+      );
+      const permissionToSeeCharges = customer.permissions.some(
+        (obj) => obj.Code === "CanSeeAddedChargesInATransaction",
+      );
+
       res.json({
         isError: false,
         msg: `Data Loaded Successfully.`,
         data: {
           ChangeLogData: ChangeLogData.rows,
           NameDetailsArray: Array.from(nameDetails.entries()),
+          permissionToSeeComission: permissionToSeeComission,
+          permissionToSeeCharges: permissionToSeeCharges,
         },
       });
       return;

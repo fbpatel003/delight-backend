@@ -50,5 +50,10 @@ router.get(
   isAuthenticatedCustomer,
   GenerateExcelController.getCustomerTransactionsExcel,
 );
+router.get(
+  "/getEntityLedgerExcel",
+  isAuthenticatedEmployee,
+  GenerateExcelController.getEntityLedgerExcel,
+);
 
 module.exports = router;

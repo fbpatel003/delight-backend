@@ -214,6 +214,170 @@ const GenerateExcelController = {
       res.json({ isError: true, msg: error.toString() });
     }
   },
+  getEntityLedgerExcel: async (req, res) => {
+    try {
+      var { fromDate, toDate, EntityTypeId, EntityId } = req.query;
+
+      if (!EntityId || !EntityTypeId || !fromDate || !toDate)
+        throw new Error("Invalid Parameters");
+
+      EntityId = Number(EntityId);
+      EntityTypeId = Number(EntityTypeId);
+
+      if (typeof EntityId !== "number" || typeof EntityTypeId !== "number")
+        throw new Error("Invalid Parameters");
+
+      const sqlToGetCustomerEntityEnumTypes = `
+          SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
+          `;
+
+      const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
+      const customerTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Customer",
+      ).RefEnumValueId;
+      const agentTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Agent",
+      ).RefEnumValueId;
+      const bankTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Bank",
+      ).RefEnumValueId;
+
+      const sqlToGetEntityNameDetails = `
+        SELECT
+        ac."RefEntityAccountId",
+        ac."EntityTypeRefEnumValueId",
+        enu."Code",
+        ac."EntityId",
+        CASE
+          WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
+          WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
+          WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
+        END AS EntityName
+        FROM dbo."RefEntityAccount" ac
+        INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
+        LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId"
+        LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
+        LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
+        WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
+          `;
+
+      const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
+
+      const nameDetails = new Map();
+      EntityNameDetails.rows.forEach((t) => {
+        nameDetails.set(t.RefEntityAccountId, t);
+      });
+
+      const sqlToGetAccountId = `
+        SELECT
+        "RefEntityAccountId"
+        FROM dbo."RefEntityAccount"
+        WHERE "EntityTypeRefEnumValueId" = ${EntityTypeId} AND "EntityId" = ${EntityId};
+        `;
+      const AccountId = await postgre.query(sqlToGetAccountId);
+
+      const sqlToGetTransactions = `
+      WITH ids AS (
+      SELECT
+      "CoreTransactionDetailId"
+      FROM dbo."CoreTransactionDetail"
+      WHERE date("AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' AND ("FromAccountId" = ${AccountId.rows[0].RefEntityAccountId} OR "ToAccountId" = ${AccountId.rows[0].RefEntityAccountId})
+      ) 
+      SELECT
+      tran."CoreTransactionDetailId",
+      tran."FromAccountId" AS fromaccountid,
+      tran."ToAccountId" AS toaccountid,
+      tran."Amount",
+      tran."Comission",
+      tran."Charges",
+      tran."Notes",
+      tran."AddedOn",
+      tran."DepositDate",
+      CASE WHEN tran."FromAccountId" = ${AccountId.rows[0].RefEntityAccountId} THEn tran."FromEntityUpdatedBalance" ELSE tran."ToEntityUpdatedBalance" END AS "UpdatedBalance"
+      FROM ids idss
+      INNER JOIN dbo."CoreTransactionDetail" tran ON tran."CoreTransactionDetailId" = idss."CoreTransactionDetailId"
+      ORDER BY tran."CoreTransactionDetailId" DESC;
+                `;
+
+      const Transactions = await postgre.query(sqlToGetTransactions);
+
+      const FinalTransactions = [];
+
+      Transactions.rows.forEach((t) => {
+        FinalTransactions.push({
+          CoreTransactionDetailId: t.CoreTransactionDetailId,
+          Action:
+            t.fromaccountid == AccountId.rows[0].RefEntityAccountId
+              ? "Debit"
+              : "Credit",
+          PartyName:
+            t.fromaccountid == AccountId.rows[0].RefEntityAccountId
+              ? nameDetails.get(t.toaccountid).entityname
+              : nameDetails.get(t.fromaccountid).entityname,
+          Amount: t.Amount,
+          Comission: t.Comission,
+          Charges: t.Charges,
+          Notes: t.Notes,
+          UpdatedBalance: t.UpdatedBalance,
+          AddedOn: new Date(t.AddedOn),
+          DepositDate: formattedDate(new Date(t.DepositDate)),
+        });
+      });
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Transaction Data");
+
+      // Add columns
+      columns = [
+        { header: "t_Id", key: "CoreTransactionDetailId", width: 20 },
+        { header: "Type", key: "Action", width: 20 },
+        { header: "Party Name", key: "PartyName", width: 20 },
+        { header: "Deposit Date", key: "DepositDate", width: 20 },
+        { header: "Amount", key: "Amount", width: 20 },
+        { header: "Comission", key: "Comission", width: 20 },
+        { header: "Charges", key: "Charges", width: 20 },
+        { header: "Closing Balance", key: "UpdatedBalance", width: 20 },
+        { header: "Notes", key: "Notes", width: 20 },
+        { header: "Added On", key: "AddedOn", width: 20 },
+      ];
+
+      worksheet.columns = columns;
+
+      // Style the headers
+      worksheet.columns.forEach((column) => {
+        column.headerCell = worksheet.getRow(1).getCell(column.key);
+        column.headerCell.font = { bold: true, color: { argb: "FFFFFFFF" } }; // White text
+        column.headerCell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF808080" }, // Grey background
+        };
+        column.headerCell.alignment = {
+          vertical: "middle",
+          horizontal: "center",
+        };
+      });
+
+      // Add rows
+      worksheet.addRows(FinalTransactions);
+
+      // Write to buffer
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      // Set headers and send the buffer
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="Ledger_${nameDetails.get(AccountId.rows[0].RefEntityAccountId).Code}_${nameDetails.get(AccountId.rows[0].RefEntityAccountId).entityname}_${formattedDate(new Date(fromDate))}_${formattedDate(new Date(toDate))}_.xlsx"`,
+      );
+      res.setHeader(
+        "Content-Type",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      );
+      res.send(buffer);
+      return;
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
 };
 
 module.exports = GenerateExcelController;
