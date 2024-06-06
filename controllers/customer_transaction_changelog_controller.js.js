@@ -326,7 +326,7 @@ const CustomerTransactionChangeLog = {
             SET
             "Amount"=${ChangedLog.ToAmount},
             "Comission"=${ChangedLog.ToComission ? ChangedLog.ToComission : null},
-            "Charges"= ${ChangedLog.ToCharges ? ChangedLog.ToComission : null},
+            "Charges"= ${ChangedLog.ToCharges ? ChangedLog.ToCharges : null},
             "500RupeesNotes"=${isAgentToCustomer ? ChangedLog.To500RupeesNotes : null},
             "200RupeesNotes"=${isAgentToCustomer ? ChangedLog.To200RupeesNotes : null},
             "100RupeesNotes"=${isAgentToCustomer ? ChangedLog.To100RupeesNotes : null},
@@ -369,7 +369,6 @@ const CustomerTransactionChangeLog = {
           SET "StatusUpdatedByCustomer" = 1
           WHERE "CoreCustomerTransactionsChangeLogActionableId" = ${CoreCustomerTransactionsChangeLogActionableId}
         `;
-        console.log(sqlToUpdate);
         await postgre.query(sqlToUpdate);
 
         res.json({

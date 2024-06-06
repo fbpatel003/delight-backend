@@ -335,6 +335,13 @@ const TransactionController = {
       )
         throw "Invalid data";
 
+      if (
+        Amount <= 0 ||
+        (Comission && Comission <= 0) ||
+        (Charges && Charges <= 0)
+      )
+        throw "Invalid data";
+
       if (!DepositDate || isNaN(Date.parse(DepositDate)))
         throw `Invalid Deposit Date!`;
 
@@ -1503,6 +1510,13 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       )
         throw "Invalid data";
 
+      if (
+        Amount <= 0 ||
+        (Comission && Comission <= 0) ||
+        (Charges && Charges <= 0)
+      )
+        throw "Invalid data";
+
       CoreTransactionDetailId = Number(CoreTransactionDetailId);
 
       if (!DepositDate || isNaN(Date.parse(DepositDate)))
@@ -1795,6 +1809,116 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
           data: {},
         });
       }
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  deleteTransaction: async (req, res) => {
+    try {
+      const employee = req.session.employee;
+      const { transactionId } = req.body;
+
+      if (typeof Number(transactionId) != "number") throw "Invalid data";
+
+      const CoreTransactionDetailId = Number(transactionId);
+
+      const permissionToDeleteDeliveryTransaction = employee.permissions.some(
+        (obj) =>
+          obj.hasOwnProperty("Code") && obj.Code === "CanDeleteTransaction",
+      );
+
+      if (!permissionToDeleteDeliveryTransaction)
+        throw "Employee does not have permission to delete transaction";
+
+      const sqlToFetchOldTransaction = `
+      SELECT 
+      "CoreTransactionDetailId",
+      "FromAccountId",
+      "ToAccountId",
+      "Amount",
+      coalesce("Comission",0) AS "Comission",
+      coalesce("Charges",0) AS "Charges"
+      FROM dbo."CoreTransactionDetail" WHERE "CoreTransactionDetailId" = ${CoreTransactionDetailId};`;
+
+      const oldTransactionData = await postgre.query(sqlToFetchOldTransaction);
+
+      if (oldTransactionData.rows.length == 0) throw "Invalid Transaction Id";
+
+      const oldTransaction = oldTransactionData.rows[0];
+
+      const accountsData = await postgre.query(`
+          SELECT
+            ac."RefEntityAccountId",
+            ac."CurrentBalance",
+            v."Code",
+            ac."EntityId"
+          FROM dbo."RefEntityAccount" ac
+          INNER JOIN dbo."RefEnumValue" v ON v."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
+          WHERE "RefEntityAccountId" IN (${oldTransaction.FromAccountId},${oldTransaction.ToAccountId})
+        `);
+
+      const fromAccount = accountsData.rows.find(
+        (x) => x.RefEntityAccountId == oldTransaction.FromAccountId,
+      );
+      const toAccount = accountsData.rows.find(
+        (x) => x.RefEntityAccountId == oldTransaction.ToAccountId,
+      );
+
+      var pieceToAddInFromBalance = 0;
+      var pieceToAddInToBalance = 0;
+
+      if (fromAccount.Code == "Customer" && toAccount.Code == "Bank") {
+        pieceToAddInFromBalance =
+          oldTransaction.Amount - oldTransaction.Comission;
+        pieceToAddInToBalance =
+          -1 * (oldTransaction.Amount - oldTransaction.Charges);
+      } else {
+        pieceToAddInFromBalance = oldTransaction.Amount;
+        pieceToAddInToBalance = -1 * oldTransaction.Amount;
+      }
+
+      const currentDateString = new Date().toISOString();
+
+      const sqlToUpdate = `
+            UPDATE dbo."CoreTransactionDetail"
+            SET 
+              "FromEntityUpdatedBalance" = 
+                CASE WHEN "FromAccountId" = ${fromAccount.RefEntityAccountId} THEN "FromEntityUpdatedBalance" ${pieceToAddInFromBalance >= 0 ? "+ " + pieceToAddInFromBalance.toString() : pieceToAddInFromBalance}
+                WHEN "FromAccountId" = ${toAccount.RefEntityAccountId} THEN "FromEntityUpdatedBalance" ${pieceToAddInToBalance >= 0 ? "+ " + pieceToAddInToBalance.toString() : pieceToAddInToBalance}
+                ELSE "FromEntityUpdatedBalance"
+              END,
+              "ToEntityUpdatedBalance" =
+                CASE WHEN "ToAccountId" = ${fromAccount.RefEntityAccountId} THEN "ToEntityUpdatedBalance" ${pieceToAddInFromBalance >= 0 ? "+ " + pieceToAddInFromBalance.toString() : pieceToAddInFromBalance}
+                WHEN "ToAccountId" = ${toAccount.RefEntityAccountId} THEN "ToEntityUpdatedBalance" ${pieceToAddInToBalance >= 0 ? "+ " + pieceToAddInToBalance.toString() : pieceToAddInToBalance}
+                ELSE "ToEntityUpdatedBalance"
+              END,
+              "LastEditedByRefEmployeeId"=${employee.RefEmployeeId},
+              "LastEditedOn"='${currentDateString}'
+            WHERE "CoreTransactionDetailId" > ${CoreTransactionDetailId} AND ("FromAccountId" IN (${fromAccount.RefEntityAccountId},${toAccount.RefEntityAccountId})
+            OR "ToAccountId" IN (${fromAccount.RefEntityAccountId},${toAccount.RefEntityAccountId}));
+
+            update dbo."RefEntityAccount"
+            SET "CurrentBalance" =
+              CASE WHEN "RefEntityAccountId" = ${fromAccount.RefEntityAccountId} THEN "CurrentBalance" ${pieceToAddInFromBalance >= 0 ? "+ " + pieceToAddInFromBalance.toString() : pieceToAddInFromBalance}
+              WHEN "RefEntityAccountId" = ${toAccount.RefEntityAccountId} THEN "CurrentBalance" ${pieceToAddInToBalance >= 0 ? "+ " + pieceToAddInToBalance.toString() : pieceToAddInToBalance}
+              END,
+            "LastEditedByRefEmployeeId"=${employee.RefEmployeeId},
+            "LastEditedOn"='${currentDateString}'
+            WHERE "RefEntityAccountId" IN (${fromAccount.RefEntityAccountId},${toAccount.RefEntityAccountId});
+
+            DELETE FROM dbo."CoreCustomerTransactionsChangeLogActionable"
+            WHERE "CoreTransactionDetailId" = ${CoreTransactionDetailId};
+
+            DELETE FROM dbo."CoreTransactionDetail"
+            WHERE "CoreTransactionDetailId" = ${CoreTransactionDetailId};
+          `;
+      await postgre.query(sqlToUpdate);
+
+      res.json({
+        isError: false,
+        msg: "Transaction Deleted Successfully",
+        data: {},
+      });
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
