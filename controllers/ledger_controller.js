@@ -154,10 +154,10 @@ const LedgerController = {
   },
   getSearchTransactionsData: async (req, res) => {
     try {
-      const fromDate = req.body.dateData.fromDate;
-      const toDate = req.body.dateData.toDate;
-      const fromEntity = req.body.selectedFromEntity;
-      const toEntity = req.body.selectedToEntity;
+      const fromDate = req.body.fromDate;
+      const toDate = req.body.toDate;
+      const fromEntity = req.body.fromEntity;
+      const toEntity = req.body.toEntity;
       const Amount = req.body.Amount;
       const Notes = req.body.Notes;
 
@@ -196,10 +196,11 @@ const LedgerController = {
       SELECT
       "CoreTransactionDetailId"
       FROM dbo."CoreTransactionDetail"
-      WHERE date("AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' AND (${fromAccountId == 0} OR "FromAccountId" = ${fromAccountId}) 
-      AND (${toAccountId == 0}OR "ToAccountId" = ${toAccountId})
-      AND (${!isAmountAvailable} OR "Amount" >= ${Amount})
-      AND (${!isNotesAvailable} OR "Notes" LIKE '%${Notes.trim()}%')
+      WHERE date("AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' 
+      ${fromAccountId != 0 ? ` AND "FromAccountId" = ${fromAccountId} ` : ""} 
+      ${toAccountId != 0 ? ` AND "ToAccountId" = ${toAccountId} ` : ""}
+      ${isAmountAvailable ? ` AND "Amount" >= ${Amount} ` : ""}
+      ${isNotesAvailable ? ` AND "Notes" LIKE '%${Notes.trim()}%' ` : ""}
       )
         SELECT
         tran."CoreTransactionDetailId",
@@ -231,6 +232,76 @@ const LedgerController = {
         data: {
           Transactions: Transactions.rows,
           NameDetailsArray: Array.from(nameDetails.entries()),
+        },
+      });
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  getSearchTotals: async (req, res) => {
+    try {
+      const fromDate = req.body.fromDate;
+      const toDate = req.body.toDate;
+      const fromEntity = req.body.fromEntity;
+      const toEntity = req.body.toEntity;
+      const Amount = req.body.Amount;
+      const Notes = req.body.Notes;
+
+      const EntityNameDetails = await EntityNameDetailsData();
+
+      var fromAccountId = 0;
+      var toAccountId = 0;
+      if (fromEntity && fromEntity.EntityTypeCode && fromEntity.EntityId) {
+        var account = EntityNameDetails.rows.find(
+          (x) =>
+            x.Code == fromEntity.EntityTypeCode &&
+            x.EntityId == fromEntity.EntityId,
+        );
+        fromAccountId = account.RefEntityAccountId;
+      }
+      if (toEntity && toEntity.EntityTypeCode && toEntity.EntityId) {
+        var account = EntityNameDetails.rows.find(
+          (x) =>
+            x.Code == toEntity.EntityTypeCode &&
+            x.EntityId == toEntity.EntityId,
+        );
+        toAccountId = account.RefEntityAccountId;
+      }
+
+      if (fromAccountId == 0 && toAccountId == 0)
+        throw new Error("Invalid Parameters");
+
+      isAmountAvailable = Amount && typeof Amount == "number" && Amount > 0;
+      isNotesAvailable =
+        Notes && typeof Notes == "string" && Notes.trim().length > 0;
+
+      const sqlToGetTransactions = `
+      WITH ids AS (
+      SELECT
+      "CoreTransactionDetailId"
+      FROM dbo."CoreTransactionDetail"
+      WHERE date("AddedOn") BETWEEN '${new Date(fromDate).toISOString().substring(0, 10)}' AND '${new Date(toDate).toISOString().substring(0, 10)}' 
+      ${fromAccountId != 0 ? ` AND "FromAccountId" = ${fromAccountId} ` : ""} 
+      ${toAccountId != 0 ? ` AND "ToAccountId" = ${toAccountId} ` : ""}
+      ${isAmountAvailable ? ` AND "Amount" >= ${Amount} ` : ""}
+      ${isNotesAvailable ? ` AND "Notes" LIKE '%${Notes.trim()}%' ` : ""}
+      )
+        SELECT
+          COUNT(tran."CoreTransactionDetailId") AS "TotalTransactions",
+          SUM(tran."Amount") AS "TotalAmount",
+          SUM(tran."Comission") AS "TotalComission",
+          SUM(tran."Charges") AS "TotalCharges"
+        FROM ids idss
+        INNER JOIN dbo."CoreTransactionDetail" tran ON tran."CoreTransactionDetailId" = idss."CoreTransactionDetailId"
+        `;
+
+      const Transactions = await postgre.query(sqlToGetTransactions);
+
+      res.json({
+        isError: false,
+        msg: "Data loaded successfully",
+        data: {
+          Transactions: Transactions.rows,
         },
       });
     } catch (error) {
