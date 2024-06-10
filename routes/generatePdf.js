@@ -50,5 +50,10 @@ router.post(
   isAuthenticatedCustomer,
   GeneratePdfController.getCustomerTransactionsPdf,
 );
+router.post(
+  "/getLedgerTransactionsPdf",
+  isAuthenticatedEmployee,
+  GeneratePdfController.getLedgerTransactionsPdf,
+);
 
 module.exports = router;
