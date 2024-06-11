@@ -1,6 +1,7 @@
 const postgre = require("../database");
 const bcrypt = require("bcrypt");
 const saltRounds = 11;
+const https = require("https");
 
 const companySettingController = {
   getAllCompanySettings: async (req, res) => {
@@ -331,6 +332,31 @@ const companySettingController = {
       res.json({ isError: true, msg: error.toString() });
     }
   },
+  redeployFrontend: async (req,res)=>{
+    try {
+      https.get('https://api.render.com/deploy/srv-cp43bev79t8c73e9r9e0?key=GmIiVlk6GDw', (resp) => {
+        let data = '';
+
+        // A chunk of data has been received.
+        resp.on('data', (chunk) => {
+            data += chunk;
+        });
+
+        // The whole response has been received.
+        resp.on('end', () => {
+            console.log('Response data:', JSON.parse(data));
+        });
+
+      }).on('error', (error) => {
+        console.error('Error making GET request:', error);
+        throw error.toString();
+      });
+
+      res.json({ isError: false, msg: 'Deployment started. your website will be redeployed in few minutes.' });
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  }
 };
 
 module.exports = companySettingController;

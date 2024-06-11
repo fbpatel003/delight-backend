@@ -65,4 +65,9 @@ router.post(
   isAuthenticatedEmployee,
   companySettingController.updatePassword,
 );
+router.post(
+  "/redeployFrontend",
+  isAuthenticatedEmployee,
+  companySettingController.redeployFrontend,
+);
 module.exports = router;

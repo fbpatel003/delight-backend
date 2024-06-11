@@ -132,38 +132,49 @@ const GeneratePdfController = {
         const rowHeight = 30;
         const cellPadding = 5;
         const tableX = 50;
-        let tableY = tableTop;
+        const pageHeight = doc.page.height;
+        const pageWidth = doc.page.width;
+        const tableBottomMargin = 30;
 
         const table = {
           headers: Object.keys(FinalTransactions[0]),
           rows: FinalTransactions.map((item) => Object.values(item)),
         };
 
-        doc.fontSize(11);
-        doc.fill("grey");
-        doc.font("Courier-Bold");
+        function addTableHeaders() {
+          doc.fontSize(11);
+          doc.fill("grey");
+          doc.font("Courier-Bold");
+          table.headers.forEach((header, i) => {
+            const x = tableX + i * columnWidth;
+            doc.rect(x, tableTop, columnWidth, rowHeight).stroke();
+            doc.text(header, x + cellPadding, tableTop + cellPadding);
+          });
+          doc.fontSize(10);
+          doc.fill("black");
+          doc.font("Courier");
+        }
 
-        // Draw table headers
-        table.headers = Object.keys(FinalTransactions[0]);
-        table.headers.forEach((header, i) => {
-          const x = tableX + i * columnWidth;
-          doc.rect(x, tableY, columnWidth, rowHeight).stroke();
-          doc.text(header, x + cellPadding, tableY + cellPadding);
-        });
-
-        doc.fontSize(10);
-        doc.fill("black");
-        doc.font("Courier");
-
-        // Draw table rows
-        table.rows = FinalTransactions.map((item) => Object.values(item));
-        table.rows.forEach((row, rowIndex) => {
-          tableY = tableTop + rowHeight * (rowIndex + 1);
+        function addTableRow(row, rowIndex) {
+          const y = tableTop + rowHeight * (rowIndex + 1);
           row.forEach((cell, i) => {
             const x = tableX + i * columnWidth;
-            doc.rect(x, tableY, columnWidth, rowHeight).stroke();
-            doc.text(cell, x + cellPadding, tableY + cellPadding);
+            doc.rect(x, y, columnWidth, rowHeight).stroke();
+            doc.text(cell, x + cellPadding, y + cellPadding);
           });
+        }
+
+        let rowIndex = 0;
+        addTableHeaders();
+        table.rows.forEach((row) => {
+          const y = tableTop + rowHeight * (rowIndex + 1);
+          if (y + rowHeight * 2 + tableBottomMargin > pageHeight) {
+            doc.addPage({ layout: "landscape" });
+            rowIndex = 0;
+            addTableHeaders();
+          }
+          addTableRow(row, rowIndex);
+          rowIndex++;
         });
       }
 
@@ -301,7 +312,7 @@ const GeneratePdfController = {
       if (FinalTransactions.length == 0) {
         doc
           .fontSize(12)
-          .text(`No Transactions available !`, { align: "center" });
+          .text(`No Transactions available!`, { align: "center" });
         doc.moveDown();
       } else {
         const tableTop = 100;
@@ -309,38 +320,49 @@ const GeneratePdfController = {
         const rowHeight = 30;
         const cellPadding = 5;
         const tableX = 50;
-        let tableY = tableTop;
+        const pageHeight = doc.page.height;
+        const pageWidth = doc.page.width;
+        const tableBottomMargin = 30;
 
         const table = {
           headers: Object.keys(FinalTransactions[0]),
           rows: FinalTransactions.map((item) => Object.values(item)),
         };
 
-        doc.fontSize(11);
-        doc.fill("grey");
-        doc.font("Courier-Bold");
+        function addTableHeaders() {
+          doc.fontSize(11);
+          doc.fill("grey");
+          doc.font("Courier-Bold");
+          table.headers.forEach((header, i) => {
+            const x = tableX + i * columnWidth;
+            doc.rect(x, tableTop, columnWidth, rowHeight).stroke();
+            doc.text(header, x + cellPadding, tableTop + cellPadding);
+          });
+          doc.fontSize(10);
+          doc.fill("black");
+          doc.font("Courier");
+        }
 
-        // Draw table headers
-        table.headers = Object.keys(FinalTransactions[0]);
-        table.headers.forEach((header, i) => {
-          const x = tableX + i * columnWidth;
-          doc.rect(x, tableY, columnWidth, rowHeight).stroke();
-          doc.text(header, x + cellPadding, tableY + cellPadding);
-        });
-
-        doc.fontSize(10);
-        doc.fill("black");
-        doc.font("Courier");
-
-        // Draw table rows
-        table.rows = FinalTransactions.map((item) => Object.values(item));
-        table.rows.forEach((row, rowIndex) => {
-          tableY = tableTop + rowHeight * (rowIndex + 1);
+        function addTableRow(row, rowIndex) {
+          const y = tableTop + rowHeight * (rowIndex + 1);
           row.forEach((cell, i) => {
             const x = tableX + i * columnWidth;
-            doc.rect(x, tableY, columnWidth, rowHeight).stroke();
-            doc.text(cell, x + cellPadding, tableY + cellPadding);
+            doc.rect(x, y, columnWidth, rowHeight).stroke();
+            doc.text(cell, x + cellPadding, y + cellPadding);
           });
+        }
+
+        let rowIndex = 0;
+        addTableHeaders();
+        table.rows.forEach((row) => {
+          const y = tableTop + rowHeight * (rowIndex + 1);
+          if (y + rowHeight * 2 + tableBottomMargin > pageHeight) {
+            doc.addPage({ layout: "landscape" });
+            rowIndex = 0;
+            addTableHeaders();
+          }
+          addTableRow(row, rowIndex);
+          rowIndex++;
         });
       }
 
