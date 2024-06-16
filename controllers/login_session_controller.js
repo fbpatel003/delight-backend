@@ -54,7 +54,7 @@ const loginController = {
           employee.permissions = permissions.rows;
 
           const token = jwt.sign(employee, process.env["JWT_SECRET"], {
-            expiresIn: "1h",
+            expiresIn: "24h",
           });
 
           res.json({
@@ -137,7 +137,7 @@ const loginController = {
           customer.permissions = permissions.rows;
 
           const token = jwt.sign(customer, process.env["JWT_SECRET"], {
-            expiresIn: "1h",
+            expiresIn: "24h",
           });
 
           res.json({

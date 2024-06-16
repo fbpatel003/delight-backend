@@ -55,5 +55,10 @@ router.get(
   isAuthenticatedEmployee,
   GenerateExcelController.getEntityLedgerExcel,
 );
+router.get(
+  "/getAuditHistoryExcelByTransactionId",
+  isAuthenticatedEmployee,
+  GenerateExcelController.getAuditHistoryExcelByTransactionId,
+);
 
 module.exports = router;
