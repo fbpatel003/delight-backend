@@ -50,4 +50,7 @@ app.use("/api/changelog", customerTransactionsChangeLogRouter);
 const generatePdfRouter = require("./routes/generatePdf.js");
 app.use("/api/generatePdf", generatePdfRouter);
 
+const privateAccountRouter = require("./routes/privateaccount.js");
+app.use("/api/privateaccount", privateAccountRouter);
+
 app.listen(15047, () => console.log("Server is running on port 15047"));
