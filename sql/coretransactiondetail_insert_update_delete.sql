@@ -1,4 +1,10 @@
-CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS TRIGGER AS $CoreTransactionDetail_Audit$
+
+CREATE OR REPLACE FUNCTION dbo.coretransactiondetail_insert_update_delete()
+		RETURNS trigger
+		LANGUAGE 'plpgsql'
+		COST 100
+		VOLATILE NOT LEAKPROOF
+AS $BODY$
 		BEGIN
 				IF (TG_OP = 'DELETE') THEN
 						INSERT INTO dbo."CoreTransactionDetail_Audit"(
@@ -204,9 +210,13 @@ CREATE OR REPLACE FUNCTION coretransactiondetail_insert_update_delete() RETURNS 
 				END IF;
 				RETURN NULL; -- result is ignored since this is an AFTER trigger
 		END;
-$CoreTransactionDetail_Audit$ LANGUAGE plpgsql;
+$BODY$;
 
-CREATE TRIGGER CoreTransactionDetail_Audit
-AFTER INSERT OR UPDATE OR DELETE ON dbo."CoreTransactionDetail"
-		FOR EACH ROW EXECUTE FUNCTION coretransactiondetail_insert_update_delete();
+ALTER FUNCTION dbo.coretransactiondetail_insert_update_delete()
+		OWNER TO postgree_test_0oll_user;
 
+CREATE OR REPLACE TRIGGER coretransactiondetail_audit
+AFTER INSERT OR DELETE OR UPDATE 
+ON dbo."CoreTransactionDetail"
+FOR EACH ROW
+EXECUTE FUNCTION dbo.coretransactiondetail_insert_update_delete();
