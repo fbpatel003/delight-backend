@@ -6,9 +6,6 @@ const privateAccountController = {
       var { EntityTypeId, EntityId, Name, Amount, IsPaid, Notes } = req.body;
       const employeeId = req.session.employee.RefEmployeeId;
 
-      if (!EntityTypeId || !EntityId || !Name || !Amount || !IsPaid || !Notes)
-        throw new Error("Please enter all the required fields");
-
       var EntityTypeId = Number(EntityTypeId);
       var EntityId = Number(EntityId);
       var Amount = Number(Amount);
@@ -24,11 +21,16 @@ const privateAccountController = {
       )
         throw new Error("Please enter all the required fields");
 
+      if (Amount <= 0) throw new Error("Please enter a valid amount");
+
       if (EntityTypeId < 1 || EntityTypeId > 5)
         throw new Error("Invalid Entity Type");
 
       if (EntityTypeId == 1 && EntityId != 0)
         throw new Error("Invalid Entity Id");
+
+      if (EntityTypeId == 1 && (!Name || Name.trim() == ""))
+        throw new Error("Please enter the name of the party.");
 
       if (EntityTypeId == 2) {
         const account = await postgre.query(`
@@ -64,19 +66,19 @@ const privateAccountController = {
 
       const lastTransaction = await postgre.query(
         `
-        SELECT TOP 1
-        *
-        FROM dbo."CorePrivateAccountTransaction"
-        ORDER BY "CorePrivateAccountTransactionId" DESC
+        select *
+        from dbo."CorePrivateAccountTransaction"
+        order by "CorePrivateAccountTransactionId" desc
+        fetch first 1 rows only
         `,
       );
 
-      const lastBalance = 0;
+      var lastBalance = 0;
       if (lastTransaction.rows.length > 0) {
         lastBalance = lastTransaction.rows[0].UpdatedBalance;
       }
 
-      const updatedBalance = 0;
+      var updatedBalance = 0;
       if (IsPaid) {
         updatedBalance = lastBalance - Amount;
       } else {
@@ -100,14 +102,14 @@ const privateAccountController = {
         	VALUES (
         	${EntityTypeId},
           ${EntityId && EntityId > 0 ? EntityId : null},
-          '${Name ? "'" + Name + "'" : null}',
+          ${Name ? "'" + Name + "'" : null},
           ${IsPaid},
           ${Amount},
           ${Notes ? "'" + Notes + "'" : null},
           ${updatedBalance},
-          GETDATE(),
+          now(),
           ${employeeId},
-          GETDATE(),
+          now(),
           ${employeeId}
         	);
         `;
@@ -246,6 +248,212 @@ const privateAccountController = {
           PrivateAccountTransaactionData: rows,
         },
         msg: "Data Loaded Successfully!",
+      });
+      return;
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  getPrivateAccountTransactionById: async (req, res) => {
+    try {
+      const { transactionId } = req.body;
+
+      const sql = `
+        SELECT
+        tran."CorePrivateAccountTransactionId",
+        tran."EntityType",
+        tran."EntityId",
+        tran."PartyName",
+        tran."IsPaid",
+        tran."Amount",
+        tran."Notes",
+        tran."UpdatedBalance",
+        tran."AddedOn",
+        tran."AddedByRefEmployeeId",
+        tran."LastEditedOn",
+        tran."LastEditedByRefEmployeeId"
+        FROM dbo."CorePrivateAccountTransaction" tran 
+        WHERE tran."CorePrivateAccountTransactionId" = ${transactionId};
+        `;
+
+      const { rows } = await postgre.query(sql);
+
+      if (rows.length == 0) throw new Error("Invalid Transaction Id");
+
+      res.json({
+        isError: false,
+        data: {
+          PrivateAccountTransaaction: rows[0],
+        },
+        msg: "Data Loaded Successfully!",
+      });
+      return;
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  updatePrivateAccountTransaction: async (req, res) => {
+    try {
+      var { transactionId, Amount, Notes } = req.body;
+      const employeeId = req.session.employee.RefEmployeeId;
+
+      var privateTransactionId = Number(transactionId);
+      var NewAmount = Number(Amount);
+      var NewNotes = Notes ? Notes.trim() : "";
+
+      if (
+        typeof privateTransactionId != "number" ||
+        typeof NewAmount != "number"
+      )
+        throw new Error("Please enter all the required fields");
+
+      if (NewAmount <= 0) throw new Error("Please enter a valid amount");
+
+      const oldTransactionsrow = await postgre.query(
+        `
+        SELECT
+        tran."EntityType",
+        tran."EntityId",
+        tran."PartyName",
+        tran."IsPaid",
+        tran."Amount",
+        coalesce(tran."Notes") AS "Notes",
+        tran."UpdatedBalance"
+        FROM dbo."CorePrivateAccountTransaction" tran 
+        WHERE tran."CorePrivateAccountTransactionId" = ${privateTransactionId};
+        `,
+      );
+
+      if (oldTransactionsrow.rows.length == 0)
+        throw new Error("Invalid Transaction Id");
+
+      const oldTransaction = oldTransactionsrow.rows[0];
+
+      if (
+        oldTransaction.Amount == NewAmount &&
+        oldTransaction.Notes == NewNotes
+      )
+        throw new Error("Nothing to update.");
+
+      if (
+        oldTransaction.Amount == NewAmount &&
+        oldTransaction.Notes != NewNotes
+      ) {
+        const sql = `
+        UPDATE dbo."CorePrivateAccountTransaction"
+        SET "Notes" = ${NewNotes && NewNotes.trim() != "" ? "'" + NewNotes + "'" : null},
+        "LastEditedOn" = now(),
+        "LastEditedByRefEmployeeId" = ${employeeId}
+        WHERE "CorePrivateAccountTransactionId" = ${privateTransactionId};
+        `;
+
+        await postgre.query(sql);
+
+        res.json({
+          isError: false,
+          data: {},
+          msg: "Data Updated Successfully!",
+        });
+        return;
+      } else {
+        var pieceToAddInSubsequientTransactions = 0;
+
+        if (oldTransaction.IsPaid) {
+          if (NewAmount >= oldTransaction.Amount) {
+            pieceToAddInSubsequientTransactions =
+              (NewAmount - oldTransaction.Amount) * -1;
+          } else {
+            pieceToAddInSubsequientTransactions =
+              (NewAmount - oldTransaction.Amount) * -1;
+          }
+        } else {
+          if (NewAmount >= oldTransaction.Amount) {
+            pieceToAddInSubsequientTransactions =
+              NewAmount - oldTransaction.Amount;
+          } else {
+            pieceToAddInSubsequientTransactions =
+              (oldTransaction.Amount - NewAmount) * -1;
+          }
+        }
+
+        const sql = `
+        UPDATE dbo."CorePrivateAccountTransaction"
+        SET "Amount" = ${NewAmount},
+        "Notes" = ${NewNotes && NewNotes.trim() != "" ? "'" + NewNotes + "'" : null},
+        "UpdatedBalance" = ${pieceToAddInSubsequientTransactions >= 0 ? '"UpdatedBalance" + ' + pieceToAddInSubsequientTransactions.toString() : '"UpdatedBalance" - ' + (pieceToAddInSubsequientTransactions * -1).toString()},
+        "LastEditedOn" = now(),
+        "LastEditedByRefEmployeeId" = ${employeeId}
+        WHERE "CorePrivateAccountTransactionId" = ${privateTransactionId};
+
+        UPDATE dbo."CorePrivateAccountTransaction"
+        SET "UpdatedBalance" = ${pieceToAddInSubsequientTransactions >= 0 ? '"UpdatedBalance" + ' + pieceToAddInSubsequientTransactions.toString() : '"UpdatedBalance" - ' + (pieceToAddInSubsequientTransactions * -1).toString()}
+        WHERE "CorePrivateAccountTransactionId" > ${privateTransactionId};
+        `;
+
+        await postgre.query(sql);
+
+        res.json({
+          isError: false,
+          data: {},
+          msg: "Data Updated Successfully!",
+        });
+        return;
+      }
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  deletePrivateAccountTransaction: async (req, res) => {
+    try {
+      var { transactionId } = req.body;
+
+      var privateTransactionId = Number(transactionId);
+
+      if (typeof privateTransactionId != "number")
+        throw new Error("Invalid Transaction Id");
+
+      const oldTransactionsrow = await postgre.query(
+        `
+        SELECT
+        tran."EntityType",
+        tran."EntityId",
+        tran."PartyName",
+        tran."IsPaid",
+        tran."Amount",
+        tran."UpdatedBalance"
+        FROM dbo."CorePrivateAccountTransaction" tran 
+        WHERE tran."CorePrivateAccountTransactionId" = ${privateTransactionId};
+        `,
+      );
+
+      if (oldTransactionsrow.rows.length == 0)
+        throw new Error("Invalid Transaction Id");
+
+      const oldTransaction = oldTransactionsrow.rows[0];
+
+      var pieceToAddInSubsequientTransactions = 0;
+
+      if (oldTransaction.IsPaid) {
+        pieceToAddInSubsequientTransactions = oldTransaction.Amount;
+      } else {
+        pieceToAddInSubsequientTransactions = -oldTransaction.Amount;
+      }
+
+      const sql = `
+        DELETE FROM dbo."CorePrivateAccountTransaction"
+        WHERE "CorePrivateAccountTransactionId" = ${privateTransactionId};
+
+        UPDATE dbo."CorePrivateAccountTransaction"
+        SET "UpdatedBalance" = ${pieceToAddInSubsequientTransactions >= 0 ? '"UpdatedBalance" + ' + pieceToAddInSubsequientTransactions.toString() : '"UpdatedBalance" - ' + (pieceToAddInSubsequientTransactions * -1).toString()}
+        WHERE "CorePrivateAccountTransactionId" > ${privateTransactionId};
+        `;
+
+      await postgre.query(sql);
+
+      res.json({
+        isError: false,
+        data: {},
+        msg: "Transaction Deleted Successfully!",
       });
       return;
     } catch (error) {

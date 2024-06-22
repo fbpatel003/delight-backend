@@ -40,5 +40,20 @@ router.post(
   isAuthenticatedEmployee,
   privateAccountController.getPrivateAccountTransactionDataByDate,
 );
+router.post(
+  "/getPrivateAccountTransactionById",
+  isAuthenticatedEmployee,
+  privateAccountController.getPrivateAccountTransactionById,
+);
+router.post(
+  "/updatePrivateAccountTransaction",
+  isAuthenticatedEmployee,
+  privateAccountController.updatePrivateAccountTransaction,
+);
+router.post(
+  "/deletePrivateAccountTransaction",
+  isAuthenticatedEmployee,
+  privateAccountController.deletePrivateAccountTransaction,
+);
 
 module.exports = router;
