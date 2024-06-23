@@ -308,6 +308,216 @@ const LedgerController = {
       res.json({ isError: true, msg: error.toString() });
     }
   },
+  getDashboardData: async (req, res) => {
+    try {
+      const currentDate = new Date();
+
+      const startOfDay = new Date(currentDate);
+      startOfDay.setHours(0, 0, 0, 0);
+
+      const endOfDay = new Date(currentDate);
+      endOfDay.setHours(23, 59, 59, 999);
+
+      const sqlToGetOverallTotals = `
+      WITH ids AS (
+      SELECT
+      "CoreTransactionDetailId"
+      FROM dbo."CoreTransactionDetail"
+      WHERE "AddedOn" BETWEEN '${startOfDay.toISOString()}' AND '${endOfDay.toISOString()}'
+      )
+      SELECT
+      fromaccount."EntityTypeRefEnumValueId" AS "FromEntityTypeRefEnumValueId", 
+      toaccount."EntityTypeRefEnumValueId" AS "ToEntityTypeRefEnumValueId",
+      SUM(tran."Amount") AS "Amount"
+      FROM ids 
+      INNER JOIN dbo."CoreTransactionDetail" tran ON tran."CoreTransactionDetailId" = ids."CoreTransactionDetailId"
+      INNER JOIN dbo."RefEntityAccount" fromaccount ON fromaccount."RefEntityAccountId" = tran."FromAccountId"
+      INNER JOIN dbo."RefEntityAccount" toaccount ON toaccount."RefEntityAccountId" = tran."ToAccountId"
+      GROUP BY fromaccount."EntityTypeRefEnumValueId", toaccount."EntityTypeRefEnumValueId";
+        `;
+
+      const OverallTotals = await postgre.query(sqlToGetOverallTotals);
+
+      const sqlToGetAccountToAccountTotals = `
+        WITH RECURSIVE
+        cte1 AS (
+        SELECT
+        "CoreTransactionDetailId"
+        FROM dbo."CoreTransactionDetail"
+        WHERE "AddedOn" BETWEEN '${startOfDay.toISOString()}' AND '${endOfDay.toISOString()}'
+        ),
+        cte2 AS (
+        SELECT
+        "CoreDeliveryTransactionDetailId"
+        FROM dbo."CoreDeliveryTransactionDetail"
+        WHERE "AddedOn" BETWEEN '${startOfDay.toISOString()}' AND '${endOfDay.toISOString()}'
+        )
+        SELECT
+        *
+        FROM (
+        SELECT
+        tran."FromAccountId", 
+        tran."ToAccountId",
+        SUM(tran."Amount") AS "Amount",
+        false AS "IsDelivery"
+        FROM cte1 
+        INNER JOIN dbo."CoreTransactionDetail" tran ON tran."CoreTransactionDetailId" = cte1."CoreTransactionDetailId"
+        GROUP BY tran."FromAccountId", tran."ToAccountId"
+        
+        UNION
+        
+        SELECT
+        tran."FromAccountId", 
+        tran."ToAccountId",
+        SUM(tran."Amount") AS "Amount",
+        true AS "IsDelivery"
+        FROM cte2 
+        INNER JOIN dbo."CoreDeliveryTransactionDetail" tran ON tran."CoreDeliveryTransactionDetailId" = cte2."CoreDeliveryTransactionDetailId"
+        GROUP BY tran."FromAccountId", tran."ToAccountId"
+        ) f
+        `;
+
+      const AccountToAccountTotals = await postgre.query(
+        sqlToGetAccountToAccountTotals,
+      );
+
+      const sqlToGetCustomerEntityEnumTypes = `
+        SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
+        `;
+
+      const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
+      const customerTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Customer",
+      ).RefEnumValueId;
+      const agentTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Agent",
+      ).RefEnumValueId;
+      const bankTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Bank",
+      ).RefEnumValueId;
+
+      const sqlToGetAccountsData = `
+        SELECT
+          "RefEntityAccountId" AS "AccountId",
+          "EntityTypeRefEnumValueId" AS "EntityType",
+          "CurrentBalance"
+        FROM dbo."RefEntityAccount"
+        `;
+
+      const AccountsData = await postgre.query(sqlToGetAccountsData);
+
+      const bankSet = new Set(
+        AccountsData.rows
+          .filter((x) => x.EntityType === bankTypeRefEnumValueId)
+          .map((x) => x.AccountId),
+      );
+
+      const agentSet = new Set(
+        AccountsData.rows
+          .filter((x) => x.EntityType === agentTypeRefEnumValueId)
+          .map((x) => x.AccountId),
+      );
+
+      const customerSet = new Set(
+        AccountsData.rows
+          .filter((x) => x.EntityType === customerTypeRefEnumValueId)
+          .map((x) => x.AccountId),
+      );
+
+      const customerToBankTotals = [];
+      const bankToAgentTotals = [];
+      const agentToCustomerTotals = [];
+
+      AccountToAccountTotals.rows.forEach((a) => {
+        if (customerSet.has(a.FromAccountId) && bankSet.has(a.ToAccountId)) {
+          customerToBankTotals.push(a);
+        } else if (
+          bankSet.has(a.FromAccountId) &&
+          agentSet.has(a.ToAccountId)
+        ) {
+          bankToAgentTotals.push(a);
+        } else if (
+          agentSet.has(a.FromAccountId) &&
+          customerSet.has(a.ToAccountId)
+        ) {
+          agentToCustomerTotals.push(a);
+        }
+      });
+
+      const sqlToGetTransactionCount = `
+        SELECT
+        (
+        SELECT
+        COUNT("CoreTransactionDetailId")
+        FROM dbo."CoreTransactionDetail"
+        WHERE "AddedOn" BETWEEN '${startOfDay.toISOString()}' AND '${endOfDay.toISOString()}'
+        ) AS "TotalTransactions",
+        (
+        SELECT
+        COUNT("CoreDeliveryTransactionDetailId")
+        FROM dbo."CoreDeliveryTransactionDetail"
+        ) AS "TotalPendingDeliveries",
+        (
+        SELECT
+        COUNT("CoreTransactionDetailId")
+        FROM dbo."CoreTransactionDetail"
+        WHERE "AddedOn" BETWEEN '${startOfDay.toISOString()}' AND '${endOfDay.toISOString()}'
+        AND "CoreDeliveryTransactionDetailId" IS NOT NULL
+        ) AS "TotalDeliveriesCompletedToday";
+        `;
+
+      const TransactionCount = await postgre.query(sqlToGetTransactionCount);
+
+      const sqlToGetEntityNameDetails = `
+      SELECT
+      ac."RefEntityAccountId",
+      ac."EntityTypeRefEnumValueId",
+      enu."Code",
+      ac."EntityId",
+      CASE
+        WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
+      END AS EntityName
+      FROM dbo."RefEntityAccount" ac
+      INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
+      LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId"
+      LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
+      LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
+      WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
+        `;
+
+      const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
+
+      const nameDetails = new Map();
+      EntityNameDetails.rows.forEach((t) => {
+        nameDetails.set(t.RefEntityAccountId, t);
+      });
+
+      res.json({
+        isError: false,
+        msg: "Data loaded successfully",
+        data: {
+          OverallTotals: OverallTotals.rows,
+          customerToBankTotals: customerToBankTotals,
+          bankToAgentTotals: bankToAgentTotals,
+          agentToCustomerTotals: agentToCustomerTotals,
+          AccountsData: AccountsData.rows,
+          customerTypeRefEnumValueId: customerTypeRefEnumValueId,
+          agentTypeRefEnumValueId: agentTypeRefEnumValueId,
+          bankTypeRefEnumValueId: bankTypeRefEnumValueId,
+          TotalTransactions: TransactionCount.rows[0].TotalTransactions,
+          TotalPendingDeliveries:
+            TransactionCount.rows[0].TotalPendingDeliveries,
+          TotalDeliveriesCompletedToday:
+            TransactionCount.rows[0].TotalDeliveriesCompletedToday,
+          NameDetailsArray: Array.from(nameDetails.entries()),
+        },
+      });
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
 };
 
 module.exports = LedgerController;

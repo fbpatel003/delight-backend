@@ -45,5 +45,10 @@ router.post(
   isAuthenticatedEmployee,
   LedgerController.getSearchTotals,
 );
+router.post(
+  "/getDashboardData",
+  isAuthenticatedEmployee,
+  LedgerController.getDashboardData,
+);
 
 module.exports = router;
