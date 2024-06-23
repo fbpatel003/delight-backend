@@ -18,7 +18,7 @@ app.use(
 
 app.get("/", (req, res) => {
     res.send(
-        '<body style="padding:10px; background-color:rgb(0, 26, 51); color:rgb(255, 255, 102);"><h1>Dynamic Enterprise API v1.0.0</h6><h4>Created By FB</h6><p style="color:white">bcrypt: v5.1.1<br/>cors: v2.8.5<br/>dotenv: v16.4.5<br/>exceljs: v4.4.0<br/>express: v4.19.2<br/>jsonwebtoken: v9.0.2<br/>pdfkit: v0.15.0<br/>pg: v8.11.4<br/>puppeteer: v22.10.0<br/></p></body>',
+        '<body style="padding:10px; background-color:rgb(36, 36, 36); color:rgb(204, 255, 234);"><h1>Dynamic Enterprise API v1.0.0</h6><h4>Created By FB</h6><p style="color:white">bcrypt: v5.1.1<br/>cors: v2.8.5<br/>dotenv: v16.4.5<br/>exceljs: v4.4.0<br/>express: v4.19.2<br/>jsonwebtoken: v9.0.2<br/>pdfkit: v0.15.0<br/>pg: v8.11.4<br/>puppeteer: v22.10.0<br/></p></body>',
     );
 });
 
