@@ -512,6 +512,7 @@ const LedgerController = {
           TotalDeliveriesCompletedToday:
             TransactionCount.rows[0].TotalDeliveriesCompletedToday,
           NameDetailsArray: Array.from(nameDetails.entries()),
+          type: req.session.employee.EmployeeType == "Admin",
         },
       });
     } catch (error) {
