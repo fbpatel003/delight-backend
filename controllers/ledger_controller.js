@@ -494,11 +494,28 @@ const LedgerController = {
         nameDetails.set(t.RefEntityAccountId, t);
       });
 
+      var CustomersToBankTotal = OverallTotals.rows.find(
+        (x) =>
+          x.FromEntityTypeRefEnumValueId == customerTypeRefEnumValueId &&
+          x.ToEntityTypeRefEnumValueId == bankTypeRefEnumValueId,
+      )?.Amount;
+
+      var BanksToAgentsTotal = OverallTotals.rows.find(
+        (x) =>
+          x.FromEntityTypeRefEnumValueId == bankTypeRefEnumValueId &&
+          x.ToEntityTypeRefEnumValueId == agentTypeRefEnumValueId,
+      )?.Amount;
+
+      var AgentsToCustomersTotal = OverallTotals.rows.find(
+        (x) =>
+          x.FromEntityTypeRefEnumValueId == agentTypeRefEnumValueId &&
+          x.ToEntityTypeRefEnumValueId == customerTypeRefEnumValueId,
+      )?.Amount;
+
       res.json({
         isError: false,
         msg: "Data loaded successfully",
         data: {
-          OverallTotals: OverallTotals.rows,
           customerToBankTotals: customerToBankTotals,
           bankToAgentTotals: bankToAgentTotals,
           agentToCustomerTotals: agentToCustomerTotals,
@@ -513,6 +530,9 @@ const LedgerController = {
             TransactionCount.rows[0].TotalDeliveriesCompletedToday,
           NameDetailsArray: Array.from(nameDetails.entries()),
           type: req.session.employee.EmployeeType == "Admin",
+          CustomersToBankTotal: CustomersToBankTotal,
+          BanksToAgentsTotal: BanksToAgentsTotal,
+          AgentsToCustomersTotal: AgentsToCustomersTotal,
         },
       });
     } catch (error) {
