@@ -78,6 +78,28 @@ const CustomerEntityNameDetailsData = async (RefCRMCustomerId) => {
   return EntityNameDetails;
 };
 
+const verifyDateRange = (fromDate, toDate) => {
+  // Parse the input dates
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+
+  // Check if the dates are valid
+  if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+    throw new Error("Invalid date format");
+  }
+
+  // Calculate the difference in time
+  const timeDifference = to - from;
+
+  // Convert time difference from milliseconds to days
+  const dayDifference = timeDifference / (1000 * 60 * 60 * 24);
+
+  // Check if the difference is within 93 days
+  if (dayDifference > 93) {
+    throw new Error("Date range should be greater than 93 days!");
+  }
+};
+
 const TransactionController = {
   getTransactionMasterData: async (req, res) => {
     try {
@@ -91,6 +113,8 @@ const TransactionController = {
         throw "Invalid Employee to access";
 
       const EntityNameDetails = await EntityNameDetailsData();
+
+      verifyDateRange(fromDate, toDate);
 
       const nameDetails = new Map();
       EntityNameDetails.rows.forEach((t) => {
@@ -144,6 +168,8 @@ const TransactionController = {
         employee.EmployeeType != "ManagingEmployee"
       )
         throw "Invalid Employee to access";
+
+      verifyDateRange(fromDate, toDate);
 
       const EntityNameDetails = await EntityNameDetailsData();
 
@@ -589,6 +615,8 @@ const TransactionController = {
       )
         throw "Invalid Employee to access";
 
+      verifyDateRange(fromDate, toDate);
+
       const sqlToGetTransactions = `
         SELECT
         tran."CoreTransactionDetailId",
@@ -635,6 +663,8 @@ const TransactionController = {
         employee.EmployeeType != "ManagingEmployee"
       )
         throw "Invalid Employee to access";
+
+      verifyDateRange(fromDate, toDate);
 
       const sqlToGetDeliveryTransactions = `
       SELECT
@@ -797,6 +827,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const employeeId = employee.RefEmployeeId;
       const fromDate = req.body.fromDate;
       const toDate = req.body.toDate;
+      verifyDateRange(fromDate, toDate);
 
       if (
         employee.permissions.some((x) => x.Code == "CanSeeCompletedDelivery")
@@ -992,6 +1023,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const RefCRMCustomerId = customer.RefCRMCustomerId;
       const fromDate = req.body.fromDate;
       const toDate = req.body.toDate;
+      verifyDateRange(fromDate, toDate);
 
       const EntityNameDetails =
         await CustomerEntityNameDetailsData(RefCRMCustomerId);

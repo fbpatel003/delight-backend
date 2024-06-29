@@ -6,6 +6,27 @@ const formattedDate = (d) => {
     .map((n) => (n < 10 ? `0${n}` : `${n}`))
     .join("/");
 };
+const verifyDateRange = (fromDate, toDate) => {
+  // Parse the input dates
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+
+  // Check if the dates are valid
+  if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+    throw new Error("Invalid date format");
+  }
+
+  // Calculate the difference in time
+  const timeDifference = to - from;
+
+  // Convert time difference from milliseconds to days
+  const dayDifference = timeDifference / (1000 * 60 * 60 * 24);
+
+  // Check if the difference is within 93 days
+  if (dayDifference > 93) {
+    throw new Error("Date range should be greater than 93 days!");
+  }
+};
 
 const GeneratePdfController = {
   getCustomerTransactionsPdf: async (req, res) => {
@@ -13,6 +34,8 @@ const GeneratePdfController = {
       const { fromDate, toDate } = req.body;
       const customer = req.session.customer;
       const RefCRMCustomerId = customer.RefCRMCustomerId;
+
+      verifyDateRange(fromDate, toDate);
 
       const sqlToGetCustomerEntityEnumTypes = `
           SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
@@ -190,6 +213,7 @@ const GeneratePdfController = {
 
       if (!EntityId || !EntityTypeId || !fromDate || !toDate)
         throw new Error("Invalid Parameters");
+      verifyDateRange(fromDate, toDate);
 
       EntityId = Number(EntityId);
       EntityTypeId = Number(EntityTypeId);

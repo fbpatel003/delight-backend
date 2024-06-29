@@ -78,11 +78,35 @@ const CustomerEntityNameDetailsData = async (RefCRMCustomerId) => {
   return EntityNameDetails;
 };
 
+const verifyDateRange = (fromDate, toDate) => {
+  // Parse the input dates
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+
+  // Check if the dates are valid
+  if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+    throw new Error("Invalid date format");
+  }
+
+  // Calculate the difference in time
+  const timeDifference = to - from;
+
+  // Convert time difference from milliseconds to days
+  const dayDifference = timeDifference / (1000 * 60 * 60 * 24);
+
+  // Check if the difference is within 93 days
+  if (dayDifference > 93) {
+    throw new Error("Date range should be greater than 93 days!");
+  }
+};
+
 const CustomerTransactionChangeLog = {
   getChangeLogData: async (req, res) => {
     try {
       const fromDate = req.body.fromDate;
       const toDate = req.body.toDate;
+
+      verifyDateRange(fromDate, toDate);
 
       const EntityNameDetails = await EntityNameDetailsData();
 
@@ -146,6 +170,7 @@ const CustomerTransactionChangeLog = {
       const fromDate = req.body.fromDate;
       const toDate = req.body.toDate;
       const customer = req.session.customer;
+      verifyDateRange(fromDate, toDate);
 
       const EntityNameDetails = await CustomerEntityNameDetailsData(
         customer.RefCRMCustomerId,

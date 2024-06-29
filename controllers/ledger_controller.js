@@ -38,6 +38,27 @@ const EntityNameDetailsData = async () => {
   const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
   return EntityNameDetails;
 };
+const verifyDateRange = (fromDate, toDate) => {
+  // Parse the input dates
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+
+  // Check if the dates are valid
+  if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+    throw new Error("Invalid date format");
+  }
+
+  // Calculate the difference in time
+  const timeDifference = to - from;
+
+  // Convert time difference from milliseconds to days
+  const dayDifference = timeDifference / (1000 * 60 * 60 * 24);
+
+  // Check if the difference is within 93 days
+  if (dayDifference > 93) {
+    throw new Error("Date range should be greater than 93 days!");
+  }
+};
 
 const LedgerController = {
   getLedgerMasterData: async (req, res) => {
@@ -106,6 +127,7 @@ const LedgerController = {
         typeof EntityId !== "number"
       )
         throw new Error("Invalid Parameters");
+      verifyDateRange(fromDate, toDate);
 
       const sqlToGetAccountId = `
         SELECT
@@ -160,6 +182,7 @@ const LedgerController = {
       const toEntity = req.body.toEntity;
       const Amount = req.body.Amount;
       const Notes = req.body.Notes;
+      verifyDateRange(fromDate, toDate);
 
       const EntityNameDetails = await EntityNameDetailsData();
 
@@ -246,6 +269,7 @@ const LedgerController = {
       const toEntity = req.body.toEntity;
       const Amount = req.body.Amount;
       const Notes = req.body.Notes;
+      verifyDateRange(fromDate, toDate);
 
       const EntityNameDetails = await EntityNameDetailsData();
 
