@@ -1585,6 +1585,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       coalesce("50RupeesNotes",0) AS rupees50, 
       coalesce("20RupeesNotes",0) AS rupees20, 
       coalesce("10RupeesNotes",0) AS rupees10,
+      "IsDelivery",
       "DepositDate",
       coalesce("BranchName",'') as "BranchName",
       coalesce("BranchCode",'') as "BranchCode",
@@ -1645,10 +1646,7 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
           (x) => x.RefEntityAccountId == oldTransaction.ToAccountId,
         );
 
-        const isAgentToCustomer =
-          fromAccount.Code == "Agent" && toAccount.Code == "Customer";
-
-        if (isAgentToCustomer) {
+        if (oldTransaction.IsDelivery) {
           if (
             Math.abs(
               rupees500 * 500 +
