@@ -131,6 +131,11 @@ router.post(
   TransactionController.getDeliveryTransactionDetailById,
 );
 router.post(
+  "/getDeliveryEmployeeTransactionDetailById",
+  isAuthenticatedDeliveryEmployee,
+  TransactionController.getDeliveryTransactionDetailById,
+);
+router.post(
   "/updateDeliveryTransaction",
   isAuthenticatedEmployee,
   TransactionController.updateDeliveryTransaction,

@@ -378,19 +378,6 @@ const TransactionController = {
         throw "Invalid Delivery Employee Id";
 
       if (fromEntityType == "Agent" && toEntityType == "Customer") {
-        if (
-          Math.abs(
-            Rupees500 * 500 +
-              Rupees200 * 200 +
-              Rupees100 * 100 +
-              Rupees50 * 50 +
-              Rupees20 * 20 +
-              Rupees10 * 10 -
-              Amount,
-          ) >= 10
-        )
-          throw "Invalid Notes Count !";
-
         if (isDelivery && typeof DeliveryEmployeeId != "number")
           throw "Invalid Delivery Employee Id";
       } else {
@@ -481,12 +468,6 @@ const TransactionController = {
           "Charges", 
           "Notes", 
           "IsDelivery", 
-          "500RupeesNotes", 
-          "200RupeesNotes", 
-          "100RupeesNotes", 
-          "50RupeesNotes", 
-          "20RupeesNotes", 
-          "10RupeesNotes", 
           "AddedByRefEmployeeId", 
           "AddedOn", 
           "LastEditedByRefEmployeeId", 
@@ -505,12 +486,6 @@ const TransactionController = {
           ${Charges && typeof Charges == "number" && Charges != 0 ? Charges : null},
           ${notes && typeof notes == "string" && notes.trim() != "" ? "'" + notes + "'" : null},
           false,
-          ${isAgentToCustomer ? Rupees500 : null},
-          ${isAgentToCustomer ? Rupees200 : null},
-          ${isAgentToCustomer ? Rupees100 : null},
-          ${isAgentToCustomer ? Rupees50 : null},
-          ${isAgentToCustomer ? Rupees20 : null},
-          ${isAgentToCustomer ? Rupees10 : null},
           ${employee.RefEmployeeId},
           now(),
           ${employee.RefEmployeeId},
@@ -890,6 +865,12 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       const notes = req.body.notes;
       const transactionId = req.body.transactionId;
       const employee = req.session.employee;
+      const rupeeNotes = req.body.rupeeNotes;
+
+      if (!rupeeNotes) throw "Please enter rupee notes";
+
+      const { rupees500, rupees200, rupees100, rupees50, rupees20, rupees10 } =
+        rupeeNotes;
 
       const sqlToGetTransaction = `
         SELECT
@@ -904,6 +885,19 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
 
       const Transactions = await postgre.query(sqlToGetTransaction);
       if (Transactions.rows == 0) throw "Invalid Transaction Id";
+
+      if (
+        Math.abs(
+          Transactions.rows[0].Amount -
+            (rupees500 * 500 +
+              rupees200 * 200 +
+              rupees100 * 100 +
+              rupees50 * 50 +
+              rupees20 * 20 +
+              rupees10 * 10),
+        ) >= 10
+      )
+        throw "Invalid Number of notes";
 
       const getAccounts = await postgre.query(
         `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
@@ -957,12 +951,12 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
           "CustomerNotes", 
           true, 
           ${notes && typeof notes == "string" && notes.trim() != "" ? "'" + notes + "'" : null}, 
-          "500RupeesNotes", 
-          "200RupeesNotes", 
-          "100RupeesNotes", 
-          "50RupeesNotes", 
-          "20RupeesNotes", 
-          "10RupeesNotes", 
+          ${rupees500},
+          ${rupees200},
+          ${rupees100},
+          ${rupees50},
+          ${rupees20},
+          ${rupees10},
           "AddedByRefEmployeeId", 
           now(), 
           "LastEditedByRefEmployeeId", 
@@ -1003,6 +997,12 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         const sqlToUpdateTransaction = `
           UPDATE dbo."CoreDeliveryTransactionDetail"
           SET "AcceptedByEmployee" = true,
+          "500RupeesNotes" = ${rupees500},
+          "200RupeesNotes" = ${rupees200},
+          "100RupeesNotes" = ${rupees100},
+          "50RupeesNotes" = ${rupees50},
+          "20RupeesNotes" = ${rupees20},
+          "10RupeesNotes" = ${rupees10},
           "EmployeeNotes" = ${notes && notes.trim() != "" ? "'" + notes + "'" : null}
           WHERE "CoreDeliveryTransactionDetailId" = ${transactionId}
           `;
@@ -1395,9 +1395,15 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
         throw `Invalid Deposit Date!`;
 
       var dateOfDeposit = new Date(DepositDate);
-      //dateOfDeposit.setDate(dateOfDeposit.getDate() + 1);
+      dateOfDeposit.setDate(dateOfDeposit.getDate() + 1);
 
       if (
+        (rupees500 != 0 ||
+          rupees200 != 0 ||
+          rupees100 != 0 ||
+          rupees50 != 0 ||
+          rupees20 != 0 ||
+          rupees10 != 0) &&
         Math.abs(
           rupees500 * 500 +
             rupees200 * 200 +
