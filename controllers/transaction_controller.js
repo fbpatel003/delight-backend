@@ -227,12 +227,29 @@ const TransactionController = {
       )
         throw "Invalid Employee to access";
 
+      const sqlToGetCustomerEntityEnumTypes = `
+        SELECT * from dbo."RefEnumValue" WHERE "EnumTypeName" = 'EntityType';
+        `;
+
+      const EnumTypes = await postgre.query(sqlToGetCustomerEntityEnumTypes);
+      const customerTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Customer",
+      ).RefEnumValueId;
+      const agentTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Agent",
+      ).RefEnumValueId;
+      const bankTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "Bank",
+      ).RefEnumValueId;
+
       const sqlToGetActiveCustomer = `
         SELECT
         "RefCRMCustomerId",
         "Name",
-        "DefaultComissionProfileName"
+        "DefaultComissionProfileName",
+        "CurrentBalance"
         FROM dbo."RefCRMCustomer"
+        INNER JOIN dbo."RefEntityAccount" ON "RefCRMCustomerId" = "EntityId" AND "EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId}
         WHERE "IsActive" = true;
       `;
       const ActiveCustomers = await postgre.query(sqlToGetActiveCustomer);
@@ -240,8 +257,10 @@ const TransactionController = {
       const sqlToGetActiveAgent = `
         SELECT
         "RefAgentId",
-        "Name"
+        "Name",
+        "CurrentBalance"
         FROM dbo."RefAgent"
+        INNER JOIN dbo."RefEntityAccount" ON "RefAgentId" = "EntityId" AND "EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId}
         WHERE "IsActive" = true;
       `;
       const ActiveAgents = await postgre.query(sqlToGetActiveAgent);
@@ -249,8 +268,10 @@ const TransactionController = {
       const sqlToGetActiveBank = `
         SELECT
         "RefBankId",
-        "Name"
+        "Name",
+        "CurrentBalance"
         FROM dbo."RefBank"
+        INNER JOIN dbo."RefEntityAccount" ON "RefBankId" = "EntityId" AND "EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId}
         WHERE "IsActive" = true;
       `;
       const ActiveBanks = await postgre.query(sqlToGetActiveBank);
@@ -400,6 +421,24 @@ const TransactionController = {
       ).RefEnumValueId;
 
       if (!isDelivery) {
+        if (
+          UTRNumber &&
+          typeof UTRNumber == "string" &&
+          UTRNumber.trim() != ""
+        ) {
+          const sqlToCheckDuplicateUTR = `
+            SELECT
+            "CoreTransactionDetailId"
+            FROM dbo."CoreTransactionDetail"
+            WHERE "UTRNumber" = '${UTRNumber}'
+            `;
+
+          const DuplicateUTR = await postgre.query(sqlToCheckDuplicateUTR);
+
+          if (DuplicateUTR.rows.length > 0)
+            throw `UTR Number : ${UTRNumber} already exists in Transaction of t_id : ${DuplicateUTR.rows[0].CoreTransactionDetailId}`;
+        }
+
         var updatedFromBalance = 0;
         var updatedToBalance = 0;
         var fromaccountid = 0;
@@ -434,6 +473,9 @@ const TransactionController = {
           fromaccountid = getFromAccount.rows[0].RefEntityAccountId;
           updatedFromBalance = getFromAccount.rows[0].CurrentBalance - Amount;
 
+          if (updatedFromBalance < 0)
+            throw "Insufficient Balance In Bank Account";
+
           const getToAccount = await postgre.query(
             `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
             WHERE "EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND "EntityId" = ${toEntityId}`,
@@ -458,8 +500,6 @@ const TransactionController = {
           updatedToBalance = getToAccount.rows[0].CurrentBalance + Amount;
         }
         if (fromaccountid == 0 || toaccountid == 0) throw "Invalid Account Id";
-        const isAgentToCustomer =
-          fromEntityType == "Agent" && toEntityType == "Customer";
 
         const sqlToAdd = `
         INSERT INTO dbo."CoreTransactionDetail"(

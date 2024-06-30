@@ -16,29 +16,33 @@ const employeeController = {
       const confirmPassword = req.body.confirmPassword;
       const permissionCodes = req.body.permissionCodes;
 
-      const permissionToAddEmployee = req.session.employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanAddNewEmployee");
+      const permissionToAddEmployee = req.session.employee.permissions.some(
+        (obj) => obj.hasOwnProperty("Code") && obj.Code === "CanAddNewEmployee",
+      );
 
       if (!permissionToAddEmployee)
-        throw 'User is Unauthorized to add Employee';
+        throw "User is Unauthorized to add Employee";
 
-      if (employeeType == null || employeeType.trim() == '')
-        throw 'InValid Employee Type';
+      if (employeeType == null || employeeType.trim() == "")
+        throw "InValid Employee Type";
 
-      if (name == null || name.trim() == '')
-        throw 'Name can not be empty!'
+      if (name == null || name.trim() == "") throw "Name can not be empty!";
 
       if (password != confirmPassword)
-        throw 'Passwords does not match with Confirm Password!'
+        throw "Passwords does not match with Confirm Password!";
 
-      if (password == null || password.trim() == '')
-        throw 'Password can not be empty!'
+      if (password == null || password.trim() == "")
+        throw "Password can not be empty!";
 
-      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefEmployee" WHERE "EmployeeLoginId" = '${loginId}'`
+      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefEmployee" WHERE "EmployeeLoginId" = '${loginId}'`;
 
       const { rows: row2 } = await postgre.query(sqlToCheckDuplicateLoginId);
 
       if (row2 != null && row2.length > 0) {
-        res.json({ isError: true, msg: "User with login id " + loginId + " already exists!" });
+        res.json({
+          isError: true,
+          msg: "User with login id " + loginId + " already exists!",
+        });
         return;
       }
 
@@ -47,8 +51,7 @@ const employeeController = {
           console.log(err);
           throw err.toString();
         } else {
-          const sql =
-            `
+          const sql = `
               SELECT dbo.refemployee_insert(
                 ${RefEmployeeId}, 
                 '${permissionCodes}', 
@@ -59,20 +62,24 @@ const employeeController = {
                 '${loginId}', 
                 '${hash}'
               );
-              `
-            ;
+              `;
           const { rows } = await postgre.query(sql);
 
           if (rows == null || rows.length == 0) {
-            res.json({ isError: true, msg: "Something went wrong! could not added Employee" });
+            res.json({
+              isError: true,
+              msg: "Something went wrong! could not added Employee",
+            });
             return;
           } else {
-            res.json({ isError: false, msg: `Employee Added Successfully, Please Refresh Deploy Link for ${name} to coninue.` });
+            res.json({
+              isError: false,
+              msg: `Employee Added Successfully, Please Refresh Deploy Link for ${name} to coninue.`,
+            });
             return;
           }
         }
       });
-
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
@@ -81,7 +88,9 @@ const employeeController = {
     try {
       const employee = req.session.employee;
 
-      const permissionToAddEmployee = employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanAddNewEmployee");
+      const permissionToAddEmployee = employee.permissions.some(
+        (obj) => obj.hasOwnProperty("Code") && obj.Code === "CanAddNewEmployee",
+      );
 
       const deliveryPermission = [];
       const managingPermission = [];
@@ -95,15 +104,18 @@ const employeeController = {
         `;
         const allPermissions = await postgre.query(sql1);
 
-        allPermissions.rows.forEach(element => {
-          if (element.EnumTypeName == 'Delivery Employee Permission Type')
+        allPermissions.rows.forEach((element) => {
+          if (element.EnumTypeName == "Delivery Employee Permission Type")
             deliveryPermission.push(element);
-          else
-            managingPermission.push(element);
+          else managingPermission.push(element);
         });
       }
 
-      const permissionToSeeAndUpdateEmployees = employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanSeeAndUpdateExistingEmployee");
+      const permissionToSeeAndUpdateEmployees = employee.permissions.some(
+        (obj) =>
+          obj.hasOwnProperty("Code") &&
+          obj.Code === "CanSeeAndUpdateExistingEmployee",
+      );
       var employeeMasterData = [];
 
       if (permissionToSeeAndUpdateEmployees) {
@@ -140,10 +152,9 @@ const employeeController = {
           employee,
           deliveryPermission,
           managingPermission,
-          employeeMasterData: employeeMasterData.rows
-        }
-      })
-
+          employeeMasterData: employeeMasterData.rows,
+        },
+      });
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
@@ -152,13 +163,16 @@ const employeeController = {
     try {
       const RefEmployeeId = req.body.RefEmployeeId;
 
-      const permissionToEditEmployee = req.session.employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanSeeAndUpdateExistingEmployee");
+      const permissionToEditEmployee = req.session.employee.permissions.some(
+        (obj) =>
+          obj.hasOwnProperty("Code") &&
+          obj.Code === "CanSeeAndUpdateExistingEmployee",
+      );
 
       if (!permissionToEditEmployee)
-        throw 'User is Unauthorized to edit Employee';
+        throw "User is Unauthorized to edit Employee";
 
-      const sqlEmployee =
-        `
+      const sqlEmployee = `
       SELECT
         e."Name",
         ty."Name" AS EmployeeType,
@@ -170,27 +184,29 @@ const employeeController = {
       INNER JOIN dbo."RefEmployeeType" ty ON ty."RefEmployeeTypeId" = e."RefEmployeeTypeId"
       WHERE e."RefEmployeeId" = ${RefEmployeeId}
       ORDER BY e."RefEmployeeId"
-      `
+      `;
 
       const { rows: row } = await postgre.query(sqlEmployee);
 
       if (row == null && row.length == 0) {
-        throw 'Invalid EmployeeId!';
+        throw "Invalid EmployeeId!";
       }
 
-      const sqlPermission =
-        `
+      const sqlPermission = `
       SELECT
       v.*
       FROM dbo."SecEntityPermision" s
       INNER JOIN dbo."RefEnumValue" v ON v."RefEnumValueId" = s."PermissionRefEnumValueId"
       WHERE s."EntityTypeCode" = 'E' AND s."EntityId" = ${RefEmployeeId}
-      `
+      `;
 
       const { rows: row2 } = await postgre.query(sqlPermission);
 
-      res.json({ isError: false, msg: 'Data Loaded.', data: { employeeData: row, premissions: row2 } })
-
+      res.json({
+        isError: false,
+        msg: "Data Loaded.",
+        data: { employeeData: row, premissions: row2 },
+      });
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }
@@ -206,49 +222,53 @@ const employeeController = {
       const loginId = req.body.loginId.trim();
       const permissionCodes = req.body.permissionCodes;
 
-      const permissionToEditEmployee = req.session.employee.permissions.some(obj => obj.hasOwnProperty('Code') && obj.Code === "CanSeeAndUpdateExistingEmployee");
+      const permissionToEditEmployee = req.session.employee.permissions.some(
+        (obj) =>
+          obj.hasOwnProperty("Code") &&
+          obj.Code === "CanSeeAndUpdateExistingEmployee",
+      );
 
       if (!permissionToEditEmployee)
-        throw 'User is Unauthorized to edit Employee';
+        throw "User is Unauthorized to edit Employee";
 
-      if (employeeType == null || employeeType.trim() == '')
-        throw 'InValid Employee Type';
+      if (employeeType == null || employeeType.trim() == "")
+        throw "InValid Employee Type";
 
-      if (name == null || name.trim() == '')
-        throw 'Name can not be empty!'
+      if (name == null || name.trim() == "") throw "Name can not be empty!";
 
-      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefEmployee" WHERE "EmployeeLoginId" = '${loginId}' AND "RefEmployeeId" <> ${RefEmployeeId}`
+      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."RefEmployee" WHERE "EmployeeLoginId" = '${loginId}' AND "RefEmployeeId" <> ${RefEmployeeId}`;
       const { rows: rows } = await postgre.query(sqlToCheckDuplicateLoginId);
 
       if (rows != null && rows.length > 0) {
-        res.json({ isError: true, msg: "User with login id " + loginId + " already exists!" });
+        res.json({
+          isError: true,
+          msg: "User with login id " + loginId + " already exists!",
+        });
         return;
       }
 
       const sqlEmployeeOld = `SELECT * FROM dbo."RefEmployee" WHERE "RefEmployeeId" = ${RefEmployeeId}`;
       const { rows: rows2 } = await postgre.query(sqlEmployeeOld);
 
-      const sqlPermission =
-        `
+      const sqlPermission = `
       SELECT
       v.*
       FROM dbo."SecEntityPermision" s
       INNER JOIN dbo."RefEnumValue" v ON v."RefEnumValueId" = s."PermissionRefEnumValueId"
       WHERE s."EntityTypeCode" = 'E' AND s."EntityId" = ${RefEmployeeId}
-      `
+      `;
 
       const { rows: rows3 } = await postgre.query(sqlPermission);
 
       var permissionchanged = false;
       var detailschanged = false;
 
-      const newPermissions = permissionCodes.toString().split(',');
+      const newPermissions = permissionCodes.toString().split(",");
 
-      if (newPermissions.length != rows3.length)
-        permissionchanged = true;
+      if (newPermissions.length != rows3.length) permissionchanged = true;
 
       if (!permissionchanged) {
-        const oldPermissions = rows3.map(obj => obj.Code);
+        const oldPermissions = rows3.map((obj) => obj.Code);
 
         const sortedArr1 = oldPermissions.slice().sort();
         const sortedArr2 = newPermissions.slice().sort();
@@ -262,16 +282,20 @@ const employeeController = {
       }
 
       if (!permissionchanged) {
-        if (name != rows2.Name || mobileNumber != rows2.MobileNumber || email != rows2.Email || loginId != rows2.EmployeeLoginId) {
+        if (
+          name != rows2.Name ||
+          mobileNumber != rows2.MobileNumber ||
+          email != rows2.Email ||
+          loginId != rows2.EmployeeLoginId
+        ) {
           detailschanged = true;
         }
       }
 
       if (!permissionchanged && !detailschanged)
-        throw `Nothing to Update for Employee : ${rows2.Name}!`
+        throw `Nothing to Update for Employee : ${rows2.Name}!`;
 
-      const sqlToUpdate =
-        `
+      const sqlToUpdate = `
       SELECT dbo.refemployee_update(
         ${UserRefEmployeeId}, 
         ${RefEmployeeId}, 
@@ -282,13 +306,83 @@ const employeeController = {
         '${email}', 
         '${loginId}'
       );
-      `
+      `;
 
       const { rows: rows4 } = await postgre.query(sqlToUpdate);
 
       if (rows4 != null && rows4.length > 0)
-        res.json({ isError: false, msg: 'Employee Details Updated Successfully.' });
+        res.json({
+          isError: false,
+          msg: "Employee Details Updated Successfully.",
+        });
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
+  updatePassword: async (req, res) => {
+    try {
+      const { CurrentPassword, NewPassword, ConfirmNewPassword } = req.body;
 
+      const employee = req.session.employee;
+
+      if (!CurrentPassword || !NewPassword || !ConfirmNewPassword)
+        throw "Please fill all the fields!";
+
+      if (
+        CurrentPassword.trim().length == 0 ||
+        NewPassword.trim().length == 0 ||
+        ConfirmNewPassword.trim().length == 0
+      )
+        throw "Please fill all the fields!";
+
+      if (NewPassword != ConfirmNewPassword)
+        throw "New Password does not match with Confirm Password!";
+
+      const sqlToCheckIfEmployeeExists = `
+          SELECT * FROM dbo."RefEmployee" WHERE "RefEmployeeId" = ${employee.RefEmployeeId}
+          `;
+      const { rows } = await postgre.query(sqlToCheckIfEmployeeExists);
+
+      bcrypt.compare(
+        CurrentPassword,
+        rows[0].Password,
+        async (error, response) => {
+          if (error) {
+            res.json({ isError: true, msg: error.toString() });
+            return;
+          }
+
+          if (!response) {
+            res.json({ isError: true, msg: "Current Password is incorrect!" });
+            return;
+          }
+
+          if (response) {
+            bcrypt.hash(NewPassword, saltRounds, async (err, hash) => {
+              if (err) {
+                res.json({ isError: true, msg: err.toString() });
+                return;
+              } else {
+                try {
+                  const sqlToUpdatePassword = `
+              UPDATE dbo."RefEmployee" SET "Password" = '${hash}' WHERE "RefEmployeeId" = ${employee.RefEmployeeId}
+              `;
+                  await postgre.query(sqlToUpdatePassword);
+
+                  res.json({
+                    isError: false,
+                    msg: `Password updated successfully!`,
+                  });
+                  return;
+                } catch (e) {
+                  res.json({ isError: true, msg: e.toString() });
+                  return;
+                }
+              }
+            });
+          }
+        },
+      );
     } catch (error) {
       res.json({ isError: true, msg: error.toString() });
     }

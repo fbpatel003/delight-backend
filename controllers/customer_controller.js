@@ -263,6 +263,74 @@ const customerController = {
       res.json({ isError: true, msg: error.toString() });
     }
   },
+  updatePassword: async (req, res) => {
+    try {
+      const { CurrentPassword, NewPassword, ConfirmNewPassword } = req.body;
+
+      const customer = req.session.customer;
+
+      if (!CurrentPassword || !NewPassword || !ConfirmNewPassword)
+        throw "Please fill all the fields!";
+
+      if (
+        CurrentPassword.trim().length == 0 ||
+        NewPassword.trim().length == 0 ||
+        ConfirmNewPassword.trim().length == 0
+      )
+        throw "Please fill all the fields!";
+
+      if (NewPassword != ConfirmNewPassword)
+        throw "New Password does not match with Confirm Password!";
+
+      const sqlToCheckIfEmployeeExists = `
+          SELECT * FROM dbo."RefCRMCustomer" WHERE "RefCRMCustomerId" = ${customer.RefCRMCustomerId}
+          `;
+      const { rows } = await postgre.query(sqlToCheckIfEmployeeExists);
+
+      bcrypt.compare(
+        CurrentPassword,
+        rows[0].Password,
+        async (error, response) => {
+          if (error) {
+            res.json({ isError: true, msg: error.toString() });
+            return;
+          }
+
+          if (!response) {
+            res.json({ isError: true, msg: "Current Password is incorrect!" });
+            return;
+          }
+
+          if (response) {
+            bcrypt.hash(NewPassword, saltRounds, async (err, hash) => {
+              if (err) {
+                res.json({ isError: true, msg: err.toString() });
+                return;
+              } else {
+                try {
+                  const sqlToUpdatePassword = `
+              UPDATE dbo."RefCRMCustomer" SET "Password" = '${hash}' WHERE "RefCRMCustomerId" = ${customer.RefCRMCustomerId}
+              `;
+                  await postgre.query(sqlToUpdatePassword);
+
+                  res.json({
+                    isError: false,
+                    msg: `Password updated successfully!`,
+                  });
+                  return;
+                } catch (e) {
+                  res.json({ isError: true, msg: e.toString() });
+                  return;
+                }
+              }
+            });
+          }
+        },
+      );
+    } catch (error) {
+      res.json({ isError: true, msg: error.toString() });
+    }
+  },
 };
 
 module.exports = customerController;
