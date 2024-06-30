@@ -31,6 +31,7 @@ VALUES
 ('EntityType', 'Customer','Customer'),
 ('EntityType', 'Bank', 'Bank'),
 ('EntityType', 'Agent', 'Agent'),
+('EntityType','Managing Agent','ManagingAgent'),
 ('Managing Employee Permission Type','Can Edit Pending Delivery Transaction','CanEditPendingDeliveryTransaction'),
 ('Managing Employee Permission Type','Can Delete Pending Delivery Transaction','CanDeletePendingDeliveryTransaction'),
 ('Managing Employee Permission Type','Can Edit Transaction','CanEditTransaction'),
@@ -314,6 +315,37 @@ ALTER TABLE IF EXISTS dbo."RefAgent"
 -------------------------------------------------------------------------------------
 
 
+
+
+
+CREATE TABLE IF NOT EXISTS dbo."RefManagingAgent"
+(
+    "RefManagingAgentId" integer NOT NULL GENERATED ALWAYS AS IDENTITY ( INCREMENT 1 START 1 MINVALUE 1 MAXVALUE 2147483647 CACHE 1 ),
+    "Name" text COLLATE pg_catalog."default" NOT NULL,
+    "IsActive" boolean NOT NULL,
+    "AddedByRefEmployeeId" integer NOT NULL,
+    "AddedOn" timestamp with time zone NOT NULL,
+    "LastEditedByRefEmployeeId" integer NOT NULL,
+    "LastEditedOn" timestamp with time zone NOT NULL,
+    CONSTRAINT "RefManagingAgent_pkey" PRIMARY KEY ("RefManagingAgentId"),
+    CONSTRAINT "UQ_RefManagingAgent_Name" UNIQUE ("Name"),
+    CONSTRAINT "FK_RefManagingAgent_AddedByRefEmployeeId" FOREIGN KEY ("AddedByRefEmployeeId")
+        REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION,
+    CONSTRAINT "FK_RefManagingAgent_LasteEditedByEmployeeId" FOREIGN KEY ("LastEditedByRefEmployeeId")
+        REFERENCES dbo."RefEmployee" ("RefEmployeeId") MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS dbo."RefManagingAgent"
+    OWNER to postgree_dynamic_user;
+
+
+---------------------------------------------------------------------------
 
 
 

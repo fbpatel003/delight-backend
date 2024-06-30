@@ -8,7 +8,8 @@ const BankAndAgentController = {
       const name = req.body.name;
       const type = req.body.type;
 
-      if (type !== "Bank" && type !== "Agent") throw `Invalid Type ${type}`;
+      if (type !== "Bank" && type !== "Agent" && type !== "ManagingAgent")
+        throw `Invalid Type ${type}`;
 
       const permissionToAddBankOrAgent = employee.EmployeeType == "Admin";
 
@@ -17,12 +18,12 @@ const BankAndAgentController = {
 
       if (name == null || name.trim() == "") throw "Name can not be empty!";
 
-      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."Ref${type}" WHERE "Name" = '${name}'`;
+      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."Ref${type}" WHERE "Name" = '${name.trim()}'`;
 
       const { rows: row2 } = await postgre.query(sqlToCheckDuplicateLoginId);
 
       if (row2 != null && row2.length > 0)
-        throw `${type} with Name ${name} already exists!`;
+        throw `${type} with Name ${name.trim()} already exists!`;
 
       const sqltoAdd = `
       INSERT INTO dbo."Ref${type}"(
@@ -34,7 +35,7 @@ const BankAndAgentController = {
         "LastEditedOn"
         )
         VALUES (
-        '${name}',
+        '${name.trim()}',
         true,
         ${RefEmployeeId},
         now(),
@@ -106,12 +107,28 @@ const BankAndAgentController = {
       `;
       const agentMasterData = await postgre.query(sqltoGetAgents);
 
+      const sqltoGetManagingAgents = `
+      SELECT
+      b."RefManagingAgentId",
+      b."Name",
+      b."IsActive",
+      ac."CurrentBalance"
+      FROM dbo."RefManagingAgent" b
+      INNER JOIN dbo."RefEntityAccount" ac ON ac."EntityId" = b."RefManagingAgentId"
+      INNER JOIN dbo."RefEnumValue" v ON v."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
+      WHERE v."EnumTypeName" = 'EntityType' AND v."Code" = 'ManagingAgent';
+      `;
+      const managingAgentMasterData = await postgre.query(
+        sqltoGetManagingAgents,
+      );
+
       res.json({
         isError: false,
         msg: "Data loaded successfully",
         data: {
           bankMasterData: bankMasterData.rows,
           agentMasterData: agentMasterData.rows,
+          managingAgentMasterData: managingAgentMasterData.rows,
         },
       });
     } catch (error) {
@@ -127,21 +144,22 @@ const BankAndAgentController = {
       const entityId = req.body.entityId;
       const employee = req.session.employee;
 
-      if (type !== "Bank" && type !== "Agent") throw `Invalid Type ${type}`;
+      if (type !== "Bank" && type !== "Agent" && type !== "ManagingAgent")
+        throw `Invalid Type ${type}`;
 
       const permissionToLoadBankOrAgent = employee.EmployeeType == "Admin";
       if (!permissionToLoadBankOrAgent) throw `User is Unauthorized!`;
 
       if (name == null || name.trim() == "") throw "Name can not be empty!";
 
-      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."Ref${type}" WHERE "Ref${type}Id" <> ${entityId} AND "Name" = '${name}'`;
+      const sqlToCheckDuplicateLoginId = `SELECT * FROM dbo."Ref${type}" WHERE "Ref${type}Id" <> ${entityId} AND "Name" = '${name.trim()}'`;
       const { rows: rows } = await postgre.query(sqlToCheckDuplicateLoginId);
       if (rows != null && rows.length > 0)
         throw `${type} with Name: ${name} already exists!`;
 
       const sqlToUpdate = `
       UPDATE dbo."Ref${type}"
-      SET "Name" = '${name}',
+      SET "Name" = '${name.trim()}',
       "IsActive" = ${IsActive},
       "LastEditedByRefEmployeeId" = ${UserRefEmployeeId},
       "LastEditedOn" = now()

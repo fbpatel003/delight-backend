@@ -45,7 +45,8 @@ VALUES ('Customer Permission Type', 'Can See Notes Added By Transaction Creator'
 INSERT INTO dbo."RefEnumValue" ("EnumTypeName", "EnumValueName", "Code")
 VALUES ('EntityType', 'Customer','Customer'),
 ('EntityType', 'Bank', 'Bank'),
-('EntityType', 'Agent', 'Agent');
+('EntityType', 'Agent', 'Agent'),
+('EntityType','Managing Agent','ManagingAgent');
 
 INSERT INTO dbo."RefEnumValue"("EnTypeName","EnumValueName","Code") VALUES
 ('Managing Employee Permission Type','Can Edit Pending Delivery Transaction','CanEditPendingDeliveryTransaction'),
