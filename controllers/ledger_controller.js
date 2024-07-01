@@ -12,6 +12,9 @@ const EntityNameDetailsData = async () => {
   const agentTypeRefEnumValueId = EnumTypes.rows.find(
     (x) => x.Code == "Agent",
   ).RefEnumValueId;
+  const managingAgentTypeRefEnumValueId = EnumTypes.rows.find(
+    (x) => x.Code == "ManagingAgent",
+  ).RefEnumValueId;
   const bankTypeRefEnumValueId = EnumTypes.rows.find(
     (x) => x.Code == "Bank",
   ).RefEnumValueId;
@@ -26,13 +29,16 @@ const EntityNameDetailsData = async () => {
     WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
     WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
     WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
+    WHEN ac."EntityTypeRefEnumValueId" = ${managingAgentTypeRefEnumValueId} THEN managingAgent."Name"
   END AS EntityName
   FROM dbo."RefEntityAccount" ac
   INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
   LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId"
   LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
   LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
-  WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
+  LEFT JOIN dbo."RefManagingAgent" managingAgent ON ac."EntityTypeRefEnumValueId" = ${managingAgentTypeRefEnumValueId} AND
+  managingAgent."RefManagingAgentId" = ac."EntityId"
+  WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL OR managingAgent."RefManagingAgentId" IS NOT NULL;
     `;
 
   const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
@@ -74,6 +80,9 @@ const LedgerController = {
       const agentTypeRefEnumValueId = EnumTypes.rows.find(
         (x) => x.Code == "Agent",
       ).RefEnumValueId;
+      const managingAgentTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "ManagingAgent",
+      ).RefEnumValueId;
       const bankTypeRefEnumValueId = EnumTypes.rows.find(
         (x) => x.Code == "Bank",
       ).RefEnumValueId;
@@ -88,14 +97,17 @@ const LedgerController = {
         WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
         WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
         WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
+        WHEN ac."EntityTypeRefEnumValueId" = ${managingAgentTypeRefEnumValueId} THEN managingAgent."Name"
       END AS "EntityName"
       FROM dbo."RefEntityAccount" ac
       INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
       LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId"
       LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
       LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
-      WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
-        `;
+   LEFT JOIN dbo."RefManagingAgent" managingAgent ON ac."EntityTypeRefEnumValueId" = ${managingAgentTypeRefEnumValueId} AND
+  managingAgent."RefManagingAgentId" = ac."EntityId"
+  WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL OR managingAgent."RefManagingAgentId" IS NOT NULL;
+    `;
 
       const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
 

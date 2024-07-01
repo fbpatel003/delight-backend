@@ -12,6 +12,9 @@ const EntityNameDetailsData = async () => {
   const agentTypeRefEnumValueId = EnumTypes.rows.find(
     (x) => x.Code == "Agent",
   ).RefEnumValueId;
+  const managingAgentTypeRefEnumValueId = EnumTypes.rows.find(
+    (x) => x.Code == "ManagingAgent",
+  ).RefEnumValueId;
   const bankTypeRefEnumValueId = EnumTypes.rows.find(
     (x) => x.Code == "Bank",
   ).RefEnumValueId;
@@ -26,13 +29,16 @@ const EntityNameDetailsData = async () => {
     WHEN ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} THEN cust."Name"
     WHEN ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} THEN bank."Name"
     WHEN ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} THEN agent."Name"
+    WHEN ac."EntityTypeRefEnumValueId" = ${managingAgentTypeRefEnumValueId} THEN managingAgent."Name"
   END AS EntityName
   FROM dbo."RefEntityAccount" ac
   INNER JOIN dbo."RefEnumValue" enu ON enu."RefEnumValueId" = ac."EntityTypeRefEnumValueId"
   LEFT JOIN dbo."RefCRMCustomer" cust ON ac."EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND cust."RefCRMCustomerId" = ac."EntityId"
   LEFT JOIN dbo."RefBank" bank ON ac."EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND bank."RefBankId" = ac."EntityId"
   LEFT JOIN dbo."RefAgent" agent ON ac."EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND agent."RefAgentId" = ac."EntityId"
-  WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL;
+  LEFT JOIN dbo."RefManagingAgent" managingAgent ON ac."EntityTypeRefEnumValueId" = ${managingAgentTypeRefEnumValueId} AND
+  managingAgent."RefManagingAgentId" = ac."EntityId"
+  WHERE cust."RefCRMCustomerId" IS NOT NULL OR bank."RefBankId" IS NOT NULL OR agent."RefAgentId" IS NOT NULL OR managingAgent."RefManagingAgentId" IS NOT NULL;
     `;
 
   const EntityNameDetails = await postgre.query(sqlToGetEntityNameDetails);
@@ -238,6 +244,9 @@ const TransactionController = {
       const agentTypeRefEnumValueId = EnumTypes.rows.find(
         (x) => x.Code == "Agent",
       ).RefEnumValueId;
+      const managingAgentTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "ManagingAgent",
+      ).RefEnumValueId;
       const bankTypeRefEnumValueId = EnumTypes.rows.find(
         (x) => x.Code == "Bank",
       ).RefEnumValueId;
@@ -264,6 +273,19 @@ const TransactionController = {
         WHERE "IsActive" = true;
       `;
       const ActiveAgents = await postgre.query(sqlToGetActiveAgent);
+
+      const sqlToGetActiveManagingAgent = `
+        SELECT
+        "RefManagingAgentId",
+        "Name",
+        "CurrentBalance"
+        FROM dbo."RefManagingAgent"
+        INNER JOIN dbo."RefEntityAccount" ON "RefManagingAgentId" = "EntityId" AND "EntityTypeRefEnumValueId" = ${managingAgentTypeRefEnumValueId}
+        WHERE "IsActive" = true;
+      `;
+      const ActiveManagingAgents = await postgre.query(
+        sqlToGetActiveManagingAgent,
+      );
 
       const sqlToGetActiveBank = `
         SELECT
@@ -310,6 +332,7 @@ const TransactionController = {
           ActiveBanks: ActiveBanks.rows,
           ActiveDeliveryEmployee: ActiveDeliveryEmployee.rows,
           ComissionProfiles: ComissionProfiles.rows,
+          ActiveManagingAgents: ActiveManagingAgents.rows,
         },
       });
     } catch (error) {
@@ -351,13 +374,15 @@ const TransactionController = {
       if (
         fromEntityType != "Customer" &&
         fromEntityType != "Bank" &&
-        fromEntityType != "Agent"
+        fromEntityType != "Agent" &&
+        fromEntityType != "ManagingAgent"
       )
         throw "Invalid from entity type";
       if (
         toEntityType != "Customer" &&
         toEntityType != "Bank" &&
-        toEntityType != "Agent"
+        toEntityType != "Agent" &&
+        toEntityType != "ManagingAgent"
       )
         throw "Invalid to entity type";
 
@@ -416,6 +441,9 @@ const TransactionController = {
       const agentTypeRefEnumValueId = EnumTypes.rows.find(
         (x) => x.Code == "Agent",
       ).RefEnumValueId;
+      const managingAgentTypeRefEnumValueId = EnumTypes.rows.find(
+        (x) => x.Code == "ManagingAgent",
+      ).RefEnumValueId;
       const bankTypeRefEnumValueId = EnumTypes.rows.find(
         (x) => x.Code == "Bank",
       ).RefEnumValueId;
@@ -448,56 +476,84 @@ const TransactionController = {
         const charges = Charges ? Charges : 0;
 
         if (fromEntityType == "Customer" && toEntityType == "Bank") {
-          const getFromAccount = await postgre.query(
-            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount" 
-            WHERE "EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "EntityId" = ${fromEntityId}`,
+          const accounts = await postgre.query(
+            `SELECT 
+            "RefEntityAccountId", 
+            "CurrentBalance",
+            "EntityTypeRefEnumValueId",
+            "EntityId"
+            FROM dbo."RefEntityAccount" 
+            WHERE ("EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "EntityId" = ${fromEntityId})
+            OR ("EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND "EntityId" = ${toEntityId})
+            `,
           );
 
-          fromaccountid = getFromAccount.rows[0].RefEntityAccountId;
-          updatedFromBalance =
-            getFromAccount.rows[0].CurrentBalance - Amount + comission;
+          if (accounts.rows.length != 2) throw "Invalid Accounts";
 
-          const getToAccount = await postgre.query(
-            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount" 
-            WHERE "EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND "EntityId" = ${toEntityId}`,
+          const FromAccount = accounts.rows.find(
+            (x) =>
+              x.EntityTypeRefEnumValueId == customerTypeRefEnumValueId &&
+              x.EntityId == fromEntityId,
           );
 
-          toaccountid = getToAccount.rows[0].RefEntityAccountId;
-          updatedToBalance =
-            getToAccount.rows[0].CurrentBalance + Amount - charges;
-        } else if (fromEntityType == "Bank" && toEntityType == "Agent") {
-          const getFromAccount = await postgre.query(
-            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
-            WHERE "EntityTypeRefEnumValueId" = ${bankTypeRefEnumValueId} AND "EntityId" = ${fromEntityId}`,
-          );
-          fromaccountid = getFromAccount.rows[0].RefEntityAccountId;
-          updatedFromBalance = getFromAccount.rows[0].CurrentBalance - Amount;
+          fromaccountid = FromAccount.RefEntityAccountId;
+          updatedFromBalance = FromAccount.CurrentBalance - Amount + comission;
 
-          if (updatedFromBalance < 0)
+          const getToAccount = accounts.rows.find(
+            (x) =>
+              x.EntityTypeRefEnumValueId == bankTypeRefEnumValueId &&
+              x.EntityId == toEntityId,
+          );
+
+          toaccountid = getToAccount.RefEntityAccountId;
+          updatedToBalance = getToAccount.CurrentBalance + Amount - charges;
+        } else {
+          var fromEnum = 0;
+          var toEnum = 0;
+          if (fromEntityType == "Bank") fromEnum = bankTypeRefEnumValueId;
+          if (toEntityType == "Bank") toEnum = bankTypeRefEnumValueId;
+          if (fromEntityType == "Agent") fromEnum = agentTypeRefEnumValueId;
+          if (toEntityType == "Agent") toEnum = agentTypeRefEnumValueId;
+          if (fromEntityType == "ManagingAgent")
+            fromEnum = managingAgentTypeRefEnumValueId;
+          if (toEntityType == "ManagingAgent")
+            toEnum = managingAgentTypeRefEnumValueId;
+          if (fromEntityType == "Customer")
+            fromEnum = customerTypeRefEnumValueId;
+          if (toEntityType == "Customer") toEnum = customerTypeRefEnumValueId;
+
+          const accounts = await postgre.query(
+            `SELECT
+            "RefEntityAccountId",
+            "CurrentBalance",
+            "EntityTypeRefEnumValueId",
+            "EntityId"
+            FROM dbo."RefEntityAccount" 
+            WHERE ("EntityTypeRefEnumValueId" = ${fromEnum} AND "EntityId" = ${fromEntityId})
+            OR ("EntityTypeRefEnumValueId" = ${toEnum} AND "EntityId" = ${toEntityId})
+            `,
+          );
+
+          if (accounts.rows.length != 2) throw "Invalid Accounts";
+
+          const getFromAccount = accounts.rows.find(
+            (x) =>
+              x.EntityTypeRefEnumValueId == fromEnum &&
+              x.EntityId == fromEntityId,
+          );
+          fromaccountid = getFromAccount.RefEntityAccountId;
+          updatedFromBalance = getFromAccount.CurrentBalance - Amount;
+
+          if (fromEnum == bankTypeRefEnumValueId && updatedFromBalance < 0)
             throw "Insufficient Balance In Bank Account";
 
-          const getToAccount = await postgre.query(
-            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
-            WHERE "EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND "EntityId" = ${toEntityId}`,
+          const getToAccount = accounts.rows.find(
+            (x) =>
+              x.EntityTypeRefEnumValueId == toEnum && x.EntityId == toEntityId,
           );
 
-          toaccountid = getToAccount.rows[0].RefEntityAccountId;
-          updatedToBalance = getToAccount.rows[0].CurrentBalance + Amount;
-        } else if (fromEntityType == "Agent" && toEntityType == "Customer") {
-          const getFromAccount = await postgre.query(
-            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
-            WHERE "EntityTypeRefEnumValueId" = ${agentTypeRefEnumValueId} AND "EntityId" = ${fromEntityId}`,
-          );
-          fromaccountid = getFromAccount.rows[0].RefEntityAccountId;
-          updatedFromBalance = getFromAccount.rows[0].CurrentBalance - Amount;
-
-          const getToAccount = await postgre.query(
-            `SELECT "RefEntityAccountId", "CurrentBalance" FROM dbo."RefEntityAccount"
-            WHERE "EntityTypeRefEnumValueId" = ${customerTypeRefEnumValueId} AND "EntityId" = ${toEntityId}`,
-          );
-
-          toaccountid = getToAccount.rows[0].RefEntityAccountId;
-          updatedToBalance = getToAccount.rows[0].CurrentBalance + Amount;
+          toaccountid = getToAccount.RefEntityAccountId;
+          updatedToBalance = getToAccount.CurrentBalance + Amount;
         }
         if (fromaccountid == 0 || toaccountid == 0) throw "Invalid Account Id";
 
@@ -1657,6 +1713,20 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
       )
         throw "Nothing to update";
 
+      if (UTRNumber && typeof UTRNumber == "string" && UTRNumber.trim() != "") {
+        const sqlToCheckDuplicateUTR = `
+          SELECT
+          "CoreTransactionDetailId"
+          FROM dbo."CoreTransactionDetail"
+          WHERE "UTRNumber" = '${UTRNumber}' AND "CoreTransactionDetailId" <> ${CoreTransactionDetailId}; 
+          `;
+
+        const DuplicateUTR = await postgre.query(sqlToCheckDuplicateUTR);
+
+        if (DuplicateUTR.rows.length > 0)
+          throw `UTR Number : ${UTRNumber} already exists in Transaction of t_id : ${DuplicateUTR.rows[0].CoreTransactionDetailId}`;
+      }
+
       if (
         oldTransaction.Amount != Amount ||
         oldTransaction.Comission != Comission ||
@@ -1701,7 +1771,11 @@ WHERE tran."CoreTransactionDetailId" = ${transactionId};
             throw "Invalid Notes Count !";
         }
 
-        if (fromAccount.Code == "Bank" && toAccount.Code == "Agent") {
+        if (
+          (fromAccount.Code == "Bank" && toAccount.Code == "Agent") ||
+          (fromAccount.Code == "Bank" && toAccount.Code == "ManagingAgent") ||
+          (fromAccount.Code == "ManagingAgent" && toAccount.Code == "Agent")
+        ) {
           var oldFromFinalAmmountToDeduct = oldTransaction.Amount;
           var oldToFinalAmmountToAdd = oldTransaction.Amount;
           var newFromFinalAmmountToDeduct = Amount;
